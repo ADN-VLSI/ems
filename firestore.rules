@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function profile() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function approved() { return signedIn() && profile().status == 'active'; }
+    function role(name) { return approved() && profile().role == name; }
+    function managerOrAdmin() { return role('manager') || role('administrator'); }
+
+    match /users/{userId} {
+      allow create: if signedIn() && request.auth.uid == userId
+        && request.resource.data.status == 'pending'
+        && request.resource.data.role == 'employee';
+      allow read: if approved() && (request.auth.uid == userId || managerOrAdmin());
+      allow update: if approved() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL', 'notificationPreferences']);
+      allow update: if role('administrator');
+      allow delete: if role('administrator');
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if managerOrAdmin();
+      allow write: if false;
+    }
+    match /{collection}/{documentId} {
+      allow read: if approved() && collection in ['events', 'tasks', 'notifications', 'attendance', 'leaveRequests', 'conversations', 'messages', 'projects'];
+      allow write: if approved() && collection in ['events', 'tasks', 'attendance', 'leaveRequests', 'conversations', 'messages'];
+    }
+  }
+}
