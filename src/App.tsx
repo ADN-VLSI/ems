@@ -63,13 +63,14 @@ import type {
   LeaveType,
   NoticePost,
   PortalSection,
+  TrackRecord,
 } from "./types";
 
 type Notice = { kind: "success" | "error"; message: string };
 type EmployeeProfileDetails = {
   displayName: string;
-  jobTitle: string;
-  department: string;
+  githubId: string;
+  trackRecords: TrackRecord[];
   phone: string;
 };
 
@@ -541,12 +542,27 @@ function App() {
   ) {
     const values = {
       displayName: details.displayName.trim(),
-      jobTitle: details.jobTitle.trim(),
-      department: details.department.trim(),
+      githubId: details.githubId.trim(),
+      trackRecords: details.trackRecords.map((record) => ({
+        role: record.role.trim(),
+        startDate: record.startDate,
+        endDate: record.endDate,
+      })),
       phone: details.phone.trim(),
     };
-    if (!values.displayName) {
-      setNotice({ kind: "error", message: "Employee name cannot be empty." });
+    if (
+      !values.displayName ||
+      values.trackRecords.some(
+        (record) =>
+          !record.role ||
+          !record.startDate ||
+          (record.endDate && record.endDate < record.startDate),
+      )
+    ) {
+      setNotice({
+        kind: "error",
+        message: "Enter an employee name and complete each track record with valid dates.",
+      });
       return;
     }
 
@@ -1112,7 +1128,6 @@ function App() {
               boardNotices={boardNotices}
               onSaveNotice={saveBoardNotice}
               onDeleteNotice={deleteBoardNotice}
-              onNavigate={setSection}
               onApprove={changeApproval}
               onReview={reviewLeave}
             />
@@ -1195,7 +1210,6 @@ function Overview({
   boardNotices,
   onSaveNotice,
   onDeleteNotice,
-  onNavigate,
   onApprove,
   onReview,
 }: {
@@ -1213,7 +1227,6 @@ function Overview({
     body: string,
   ) => Promise<boolean>;
   onDeleteNotice: (notice: NoticePost) => void;
-  onNavigate: (section: PortalSection) => void;
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
 }) {
@@ -1243,14 +1256,9 @@ function Overview({
           <h2>{isAdmin           ? "Welcome back, Admin." : `A great day to make an impact, ${firstName}.`}</h2>
           <p>
             {isAdmin
-              ? "Your team is in good hands. Here’s what needs your attention today."
-              : "Take care of the important things, then get back to what you do best."}
+              ? "Review pending requests, employee approvals, and today’s attendance."
+              : "Review your leave requests and attendance at a glance."}
           </p>
-          {!isAdmin && (
-            <button className="banner-link" onClick={() => onNavigate("leaves")}>
-              Manage your time off <ArrowRight size={15} />
-            </button>
-          )}
         </div>
         <div className="welcome-art" aria-hidden="true">
           <div className="art-orbit art-orbit-one" />
@@ -1364,9 +1372,8 @@ function Overview({
               icon={<Clock3 size={18} />}
               label="Needs approval"
               value={pendingEmployees.length}
-              hint="Employee accounts"
+              hint="Waiting for approval"
               tone="amber"
-              onClick={() => onNavigate("team")}
             />
             <StatCard
               icon={<FilePlus2 size={18} />}
@@ -1374,7 +1381,6 @@ function Overview({
               value={pendingLeaves.length}
               hint="Waiting for review"
               tone="violet"
-              onClick={() => onNavigate("leaves")}
             />
             <StatCard
               icon={<CalendarCheck2 size={18} />}
@@ -1382,16 +1388,15 @@ function Overview({
               value={presentToday}
               hint="Present or marked late"
               tone="green"
-              onClick={() => onNavigate("attendance")}
             />
           </div>
           <div className="dashboard-grid dashboard-grid-admin">
             <section className="panel">
               <PanelHeading
                 title="Leave requests"
-                subtitle={pendingLeaves.length ? "A little review goes a long way." : "No requests waiting on you."}
-                actionLabel="View all"
-                onAction={() => onNavigate("leaves")}
+                subtitle={pendingLeaves.length
+                  ? `${pendingLeaves.length} request${pendingLeaves.length === 1 ? "" : "s"} waiting for review.`
+                  : "No requests waiting for review."}
               />
               <div className="compact-list">
                 {pendingLeaves.slice(0, 4).map((request) => (
@@ -1429,7 +1434,10 @@ function Overview({
               </div>
             </section>
             <section className="panel attention-panel">
-              <PanelHeading title="Approval queue" subtitle="New people, ready to join." />
+              <PanelHeading
+                title="Approval queue"
+                subtitle={`${pendingEmployees.length} account${pendingEmployees.length === 1 ? "" : "s"} awaiting review.`}
+              />
               {pendingEmployees.length ? (
                 <div className="approval-list">
                   {pendingEmployees.slice(0, 4).map((employee) => (
@@ -1448,9 +1456,9 @@ function Overview({
                     </div>
                   ))}
                   {pendingEmployees.length > 4 && (
-                    <button className="text-link" onClick={() => onNavigate("team")}>
-                      View {pendingEmployees.length - 4} more <ArrowRight size={14} />
-                    </button>
+                    <p className="overview-more-count">
+                      Showing 4 of {pendingEmployees.length} accounts awaiting approval.
+                    </p>
                   )}
                 </div>
               ) : (
@@ -1474,51 +1482,43 @@ function Overview({
               icon={<CalendarDays size={18} />}
               label="Leave requests"
               value={requests.length}
-              hint="All time"
+              hint="Total requests"
               tone="blue"
-              onClick={() => onNavigate("leaves")}
             />
             <StatCard
               icon={<Clock3 size={18} />}
               label="Awaiting a decision"
               value={requests.filter((request) => request.status === "pending").length}
-              hint="Leave requests"
+              hint="Awaiting a decision"
               tone="amber"
-              onClick={() => onNavigate("leaves")}
             />
             <StatCard
               icon={<CheckCircle2 size={18} />}
               label="Approved requests"
               value={requests.filter((request) => request.status === "approved").length}
-              hint="Requests approved"
+              hint="Approved requests"
               tone="green"
-              onClick={() => onNavigate("leaves")}
             />
             <StatCard
               icon={<CalendarCheck2 size={18} />}
               label="Attendance entries"
               value={attendance.length}
-              hint="Recorded by admin"
+              hint="Recorded attendance"
               tone="violet"
-              onClick={() => onNavigate("attendance")}
             />
           </div>
           <div className="dashboard-grid">
             <section className="panel">
               <PanelHeading
                 title="Your recent leave"
-                subtitle="A quick look at your latest requests."
-                actionLabel="View all"
-                onAction={() => onNavigate("leaves")}
+                subtitle={`Latest ${Math.min(latestRequests.length, 5)} of ${requests.length} requests.`}
               />
               <LeaveTable requests={latestRequests} showEmployee={false} />
             </section>
             <section className="panel">
               <PanelHeading
                 title="Your attendance"
-                subtitle="Your record, maintained by the admin."
-                actionLabel="View record"
-                onAction={() => onNavigate("attendance")}
+                subtitle={`Latest ${Math.min(attendance.length, 4)} of ${attendance.length} attendance records.`}
               />
               {attendance.slice(0, 4).length ? (
                 <div className="attendance-mini-list">
@@ -2253,7 +2253,7 @@ function AttendancePage({
           </table>
         </div>
         <div className="attendance-calendar-legend" aria-label="Attendance status legend">
-          {(["present", "late", "absent", "leave"] as const).map((status) => (
+          {(["present", "late", "absent"] as const).map((status) => (
             <span key={status}>
               <i className={`attendance-legend-dot attendance-legend-${status}`} />
               {attendanceLabels[status]}
@@ -2502,8 +2502,10 @@ function EmployeeProfileDetailsPanel({
   onClose: () => void;
 }) {
   const [displayName, setDisplayName] = useState(employee.displayName);
-  const [jobTitle, setJobTitle] = useState(employee.jobTitle ?? "");
-  const [department, setDepartment] = useState(employee.department ?? "");
+  const [githubId, setGithubId] = useState(employee.githubId ?? "");
+  const [trackRecords, setTrackRecords] = useState<TrackRecord[]>(
+    employee.trackRecords ?? [],
+  );
   const [phone, setPhone] = useState(employee.phone ?? "");
   const [saving, setSaving] = useState(false);
 
@@ -2511,7 +2513,7 @@ function EmployeeProfileDetailsPanel({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(employee, { displayName, jobTitle, department, phone });
+      await onSave(employee, { displayName, githubId, trackRecords, phone });
     } finally {
       setSaving(false);
     }
@@ -2541,19 +2543,13 @@ function EmployeeProfileDetailsPanel({
           <input value={employee.email} disabled />
         </label>
         <label className="field">
-          Job title
+          GitHub ID
           <input
-            maxLength={120}
-            value={jobTitle}
-            onChange={(event) => setJobTitle(event.target.value)}
-          />
-        </label>
-        <label className="field">
-          Department
-          <input
-            maxLength={120}
-            value={department}
-            onChange={(event) => setDepartment(event.target.value)}
+            maxLength={39}
+            autoComplete="off"
+            value={githubId}
+            onChange={(event) => setGithubId(event.target.value)}
+            placeholder="GitHub username"
           />
         </label>
         <label className="field">
@@ -2565,9 +2561,99 @@ function EmployeeProfileDetailsPanel({
             onChange={(event) => setPhone(event.target.value)}
           />
         </label>
-        <div className="field employee-profile-joined">
-          Registered
-          <span>{formatTimestamp(employee.createdAt)}</span>
+        <div className="track-records field-full">
+          <div className="track-records-heading">
+            <div>
+              <h3>Track records</h3>
+              <p>Add roles and dates; leave the end date blank for a current role.</p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                setTrackRecords((records) => [
+                  ...records,
+                  { role: "", startDate: "", endDate: "" },
+                ])
+              }
+            >
+              <Plus size={15} /> Add record
+            </Button>
+          </div>
+          {trackRecords.length ? (
+            <div className="track-record-list">
+              {trackRecords.map((record, index) => (
+                <div className="track-record-row" key={index}>
+                  <label className="field">
+                    Role
+                    <input
+                      required
+                      maxLength={120}
+                      value={record.role}
+                      onChange={(event) =>
+                        setTrackRecords((records) =>
+                          records.map((item, itemIndex) =>
+                            itemIndex === index
+                              ? { ...item, role: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      placeholder="Trainee Engineer"
+                    />
+                  </label>
+                  <label className="field">
+                    From
+                    <input
+                      required
+                      type="date"
+                      value={record.startDate}
+                      onChange={(event) =>
+                        setTrackRecords((records) =>
+                          records.map((item, itemIndex) =>
+                            itemIndex === index
+                              ? { ...item, startDate: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </label>
+                  <label className="field">
+                    To
+                    <input
+                      type="date"
+                      min={record.startDate || undefined}
+                      value={record.endDate}
+                      onChange={(event) =>
+                        setTrackRecords((records) =>
+                          records.map((item, itemIndex) =>
+                            itemIndex === index
+                              ? { ...item, endDate: event.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  </label>
+                  <button
+                    className="icon-button track-record-remove"
+                    type="button"
+                    aria-label={`Remove ${record.role || "track"} record`}
+                    onClick={() =>
+                      setTrackRecords((records) =>
+                        records.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="track-record-empty">No track records added.</p>
+          )}
         </div>
         <div className="form-foot field-full">
           <Button type="submit" disabled={saving}>

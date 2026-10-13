@@ -10,13 +10,19 @@ export interface LeaveBalance {
   sickDays: number;
 }
 
+export interface TrackRecord {
+  role: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface EmployeeProfile {
   uid: string;
   email: string;
   displayName: string;
   status: ApprovalStatus;
-  jobTitle?: string;
-  department?: string;
+  githubId?: string;
+  trackRecords?: TrackRecord[];
   phone?: string;
   leaveBalances?: Record<string, LeaveBalance>;
   createdAt?: Timestamp;

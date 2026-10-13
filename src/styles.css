@@ -1276,6 +1276,12 @@ a {
   gap: 2px;
 }
 
+.overview-more-count {
+  margin: 8px 0 0 43px;
+  color: #929ba8;
+  font-size: 12.15px;
+}
+
 .approval-item {
   display: flex;
   min-height: 55px;
@@ -2100,16 +2106,49 @@ tbody tr:last-child td {
   white-space: pre-wrap;
 }
 
-.employee-profile-joined {
+.track-records {
   display: grid;
-  align-content: start;
-  gap: 8px;
-  color: #687689;
-  font-size: 13px;
+  gap: 12px;
 }
 
-.employee-profile-joined span {
+.track-records-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.track-records-heading h3 {
+  margin: 0;
   color: #344154;
+  font-size: 14px;
+}
+
+.track-records-heading p,
+.track-record-empty {
+  margin: 4px 0 0;
+  color: #778294;
+  font-size: 12.5px;
+}
+
+.track-record-list {
+  display: grid;
+  gap: 10px;
+}
+
+.track-record-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) repeat(2, minmax(145px, 1fr)) 34px;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e9edf2;
+  border-radius: 9px;
+  background: #fcfdff;
+}
+
+.track-record-remove {
+  margin-bottom: 1px;
 }
 
 .notice {
@@ -2228,6 +2267,19 @@ tbody tr:last-child td {
 }
 
 @media (max-width: 700px) {
+  .track-record-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) 34px;
+  }
+
+  .track-record-row .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .track-record-remove {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
   .login-shell {
     display: block;
     min-height: 100vh;
@@ -2443,6 +2495,16 @@ tbody tr:last-child td {
 }
 
 @media (max-width: 480px) {
+  .track-record-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .track-record-remove {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+  }
+
   .access-card {
     padding: 31px 20px;
   }
