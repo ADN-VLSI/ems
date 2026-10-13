@@ -10,6 +10,7 @@ import {
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
@@ -69,6 +70,10 @@ const today = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).p
 function friendlyError(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
   return "Something went wrong. Please try again.";
+}
+
+function isAuthError(error: unknown, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === `auth/${code}`;
 }
 
 function formatDate(value?: string | null): string {
@@ -414,7 +419,24 @@ function App() {
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (signInError) {
-      setError(friendlyError(signInError));
+      if (isAuthError(signInError, "popup-blocked")) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError) {
+          setError(
+            isAuthError(redirectError, "unauthorized-domain")
+              ? "Google sign-in is not enabled for this site. Open the portal on localhost or add this domain in Firebase Console under Authentication → Settings → Authorized domains."
+              : `Popup sign-in was blocked, and redirect sign-in failed. ${friendlyError(redirectError)}`,
+          );
+        }
+      } else if (isAuthError(signInError, "unauthorized-domain")) {
+        setError(
+          "Google sign-in is not enabled for this site. Open the portal on localhost or add this domain in Firebase Console under Authentication → Settings → Authorized domains.",
+        );
+      } else {
+        setError(friendlyError(signInError));
+      }
     } finally {
       setSignInBusy(false);
     }
