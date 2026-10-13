@@ -14,6 +14,16 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 
 Requirements: Node.js 22+ and npm.
 
+Run the helper script to install dependencies if needed and start the local development server:
+
+```sh
+python run_local.py
+```
+
+The portal opens at `http://localhost:5173/`. Stop the server with Ctrl+C.
+
+Alternatively, start it manually:
+
 ```sh
 npm ci
 npm run dev

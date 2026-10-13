@@ -21,6 +21,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   FilePlus2,
   Fingerprint,
@@ -1337,6 +1339,10 @@ function AttendancePage({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [calendarMonth, setCalendarMonth] = useState(
+    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  );
+  const [calendarEmployeeId, setCalendarEmployeeId] = useState("");
   const filteredRecords = useMemo(() => {
     const term = search.trim().toLowerCase();
     return records.filter((record) => {
@@ -1348,6 +1354,43 @@ function AttendancePage({
       return matchesSearch;
     });
   }, [records, search]);
+  const calendarRecords = useMemo(
+    () =>
+      isAdmin && calendarEmployeeId
+        ? records.filter((record) => record.employeeId === calendarEmployeeId)
+        : records,
+    [calendarEmployeeId, isAdmin, records],
+  );
+  const recordsByDate = useMemo(
+    () =>
+      calendarRecords.reduce<Record<string, AttendanceRecord[]>>((byDate, record) => {
+        (byDate[record.date] ??= []).push(record);
+        return byDate;
+      }, {}),
+    [calendarRecords],
+  );
+  const calendarDays = useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cellCount = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+
+    return Array.from({ length: cellCount }, (_, index) => {
+      const day = index - firstWeekday + 1;
+      return day > 0 && day <= daysInMonth ? day : null;
+    });
+  }, [calendarMonth]);
+  const monthLabel = new Intl.DateTimeFormat("en", {
+    month: "long",
+    year: "numeric",
+  }).format(calendarMonth);
+  const attendanceLabels: Record<AttendanceStatus, string> = {
+    present: "Present",
+    late: "Late",
+    absent: "Absent",
+    leave: "On leave",
+  };
 
   return (
     <div className="content-stack">
@@ -1404,6 +1447,125 @@ function AttendancePage({
           )}
         </section>
       )}
+      <section className="panel">
+        <div className="panel-heading attendance-calendar-heading">
+          <div>
+            <h2>Attendance calendar</h2>
+            <p>
+              {isAdmin
+                ? "View attendance by month. Choose an employee to see their individual calendar."
+                : "Your recorded attendance for each day."}
+            </p>
+          </div>
+          <div className="attendance-calendar-controls">
+            {isAdmin && (
+              <label className="filter-select">
+                <span className="sr-only">Employee calendar</span>
+                <select
+                  aria-label="Filter calendar by employee"
+                  value={calendarEmployeeId}
+                  onChange={(event) => setCalendarEmployeeId(event.target.value)}
+                >
+                  <option value="">All employees</option>
+                  {employees.map((employee) => (
+                    <option value={employee.uid} key={employee.uid}>
+                      {employee.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <div className="attendance-calendar-navigation">
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Previous month"
+                onClick={() =>
+                  setCalendarMonth(
+                    (month) =>
+                      new Date(month.getFullYear(), month.getMonth() - 1, 1),
+                  )
+                }
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <strong aria-live="polite">{monthLabel}</strong>
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Next month"
+                onClick={() =>
+                  setCalendarMonth(
+                    (month) =>
+                      new Date(month.getFullYear(), month.getMonth() + 1, 1),
+                  )
+                }
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="attendance-calendar-wrap">
+          <table className="attendance-calendar" aria-label={`Attendance for ${monthLabel}`}>
+            <thead>
+              <tr>
+                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((weekday) => (
+                  <th scope="col" key={weekday}>{weekday}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from(
+                { length: calendarDays.length / 7 },
+                (_, week) => (
+                  <tr key={week}>
+                    {calendarDays.slice(week * 7, week * 7 + 7).map((day, index) => {
+                      if (!day) return <td aria-hidden="true" key={index} />;
+                      const date = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                      const dayRecords = recordsByDate[date] ?? [];
+
+                      return (
+                        <td key={date} aria-label={`${formatDate(date)}${dayRecords.length ? `, ${dayRecords.length} attendance record${dayRecords.length === 1 ? "" : "s"}` : ""}`}>
+                          <span className={`attendance-calendar-day${date === today ? " attendance-calendar-today" : ""}`}>
+                            {day}
+                          </span>
+                          <div className="attendance-calendar-events">
+                            {dayRecords.slice(0, 3).map((record) => (
+                              <span
+                                className={`attendance-event attendance-event-${record.status}`}
+                                key={record.id}
+                                title={`${record.employeeName}: ${attendanceLabels[record.status]}${record.note ? ` — ${record.note}` : ""}`}
+                              >
+                                {isAdmin && !calendarEmployeeId
+                                  ? `${record.employeeName.split(" ")[0]} · ${attendanceLabels[record.status]}`
+                                  : attendanceLabels[record.status]}
+                              </span>
+                            ))}
+                            {dayRecords.length > 3 && (
+                              <span className="attendance-calendar-more">
+                                +{dayRecords.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="attendance-calendar-legend" aria-label="Attendance status legend">
+          {(["present", "late", "absent", "leave"] as const).map((status) => (
+            <span key={status}>
+              <i className={`attendance-legend-dot attendance-legend-${status}`} />
+              {attendanceLabels[status]}
+            </span>
+          ))}
+        </div>
+      </section>
       <section className="panel">
         <div className="panel-heading panel-heading-search">
           <div>

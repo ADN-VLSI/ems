@@ -66,7 +66,7 @@ a {
 .eyebrow {
   display: inline-block;
   color: #8190a2;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 700;
   letter-spacing: 0.13em;
 }
@@ -79,7 +79,7 @@ a {
   justify-content: center;
   gap: 15px;
   color: #7d8795;
-  font-size: 14px;
+  font-size: 18.9px;
 }
 
 .loader-mark {
@@ -113,7 +113,7 @@ a {
   min-height: 720px;
   flex-direction: column;
   overflow: hidden;
-  padding: 50px clamp(36px, 6vw, 88px) 37px;
+  padding: 40px clamp(30px, 5vw, 72px) 28px;
   background:
     radial-gradient(ellipse at 12% 110%, rgba(73, 129, 207, 0.46), transparent 43%),
     radial-gradient(ellipse at 100% 10%, rgba(59, 93, 146, 0.36), transparent 42%),
@@ -150,14 +150,14 @@ a {
 
 .login-brand > .brand-mark-large {
   position: absolute;
-  top: 50px;
-  left: clamp(36px, 6vw, 88px);
+  top: 40px;
+  left: clamp(30px, 5vw, 72px);
 }
 
 .brand-name {
   color: #fff;
   font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 19px;
+  font-size: 25.65px;
   font-weight: 800;
   letter-spacing: 0.02em;
   line-height: 1.2;
@@ -165,7 +165,7 @@ a {
 
 .brand-caption {
   color: #a8b6c9;
-  font-size: 8px;
+  font-size: 10.8px;
   font-weight: 700;
   letter-spacing: 0.17em;
 }
@@ -179,7 +179,7 @@ a {
   z-index: 1;
   max-width: 470px;
   margin: auto 0;
-  padding: 55px 0 45px;
+  padding: 40px 0 30px;
 }
 
 .eyebrow-light {
@@ -190,7 +190,7 @@ a {
   max-width: 460px;
   margin: 20px 0 17px;
   font-family: "Segoe UI", Arial, sans-serif;
-  font-size: clamp(36px, 5vw, 58px);
+  font-size: clamp(48.6px, 5vw, 78.3px);
   font-weight: 600;
   letter-spacing: -0.045em;
   line-height: 1.13;
@@ -200,7 +200,7 @@ a {
   max-width: 400px;
   margin: 0;
   color: #b4c1d1;
-  font-size: 15px;
+  font-size: 20.25px;
   line-height: 1.75;
 }
 
@@ -210,7 +210,7 @@ a {
   align-items: center;
   gap: 9px;
   color: #c4d0df;
-  font-size: 12px;
+  font-size: 16.2px;
 }
 
 .login-footnote svg {
@@ -244,7 +244,7 @@ a {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 34px 30px;
+  padding: 40px 28px 24px;
 }
 
 .login-card {
@@ -263,7 +263,7 @@ a {
   margin: 13px 0 8px;
   color: #222c3a;
   font-family: "Manrope", sans-serif;
-  font-size: 30px;
+  font-size: 40.5px;
   font-weight: 700;
   letter-spacing: -0.035em;
 }
@@ -271,7 +271,7 @@ a {
 .login-description {
   margin: 0 0 29px;
   color: #7b8695;
-  font-size: 14px;
+  font-size: 18.9px;
   line-height: 1.6;
 }
 
@@ -285,7 +285,7 @@ a {
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 16.2px;
   font-weight: 600;
   transition: 150ms ease;
 }
@@ -336,7 +336,7 @@ a {
   border-color: #dfe4eb;
   background: #fff;
   color: #384456;
-  font-size: 13px;
+  font-size: 17.55px;
   box-shadow: 0 2px 6px rgba(30, 44, 62, 0.035);
 }
 
@@ -360,7 +360,7 @@ a {
   gap: 12px;
   margin: 29px 0 20px;
   color: #9ca5b0;
-  font-size: 9px;
+  font-size: 12.15px;
   font-weight: 700;
   letter-spacing: 0.12em;
 }
@@ -379,7 +379,7 @@ a {
   margin: 0;
   padding: 0;
   color: #576477;
-  font-size: 12px;
+  font-size: 16.2px;
   list-style: none;
 }
 
@@ -407,15 +407,15 @@ a {
   border-radius: 8px;
   background: #fafbfd;
   color: #788495;
-  font-size: 11px;
+  font-size: 14.85px;
   line-height: 1.55;
 }
 
 .login-legal {
   width: min(100%, 410px);
-  margin-top: 50px;
+  margin-top: 32px;
   color: #a0a8b3;
-  font-size: 10px;
+  font-size: 13.5px;
   text-align: center;
 }
 
@@ -426,7 +426,7 @@ a {
   border-radius: 7px;
   background: #fff5f4;
   color: #a3423e;
-  font-size: 12px;
+  font-size: 16.2px;
   line-height: 1.5;
 }
 
@@ -469,14 +469,14 @@ a {
 .access-card h1 {
   margin: 10px 0;
   font-family: "Manrope", sans-serif;
-  font-size: 26px;
+  font-size: 35.1px;
   letter-spacing: -0.03em;
 }
 
 .access-card > p {
   margin: 0 auto 24px;
   color: #778294;
-  font-size: 13px;
+  font-size: 17.55px;
   line-height: 1.65;
 }
 
@@ -491,7 +491,7 @@ a {
   border-radius: 9px;
   background: #fafbfd;
   color: #4f5c6e;
-  font-size: 11px;
+  font-size: 14.85px;
   text-align: left;
 }
 
@@ -506,7 +506,7 @@ a {
 .access-admin {
   margin-top: 22px;
   color: #929ba8;
-  font-size: 10px;
+  font-size: 13.5px;
 }
 
 .portal-shell {
@@ -535,7 +535,7 @@ a {
 
 .sidebar-brand .brand-name {
   color: #1c2d43;
-  font-size: 17px;
+  font-size: 22.95px;
 }
 
 .sidebar-brand .brand-caption {
@@ -564,7 +564,7 @@ a {
   background: #eaf0fc;
   color: #426bb8;
   font-family: "Manrope", sans-serif;
-  font-size: 14px;
+  font-size: 18.9px;
   font-weight: 700;
 }
 
@@ -579,7 +579,7 @@ a {
 .workspace-chip strong {
   overflow: hidden;
   color: #364356;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -587,7 +587,7 @@ a {
 
 .workspace-chip small {
   color: #9aa3af;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .workspace-chip > svg {
@@ -598,7 +598,7 @@ a {
 .nav-label {
   margin: 0 10px 10px;
   color: #9aa3af;
-  font-size: 9px;
+  font-size: 12.15px;
   font-weight: 700;
   letter-spacing: 0.12em;
 }
@@ -619,7 +619,7 @@ a {
   background: transparent;
   color: #7c8796;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 14.85px;
   text-align: left;
   transition: 150ms ease;
 }
@@ -656,7 +656,7 @@ a {
   border-radius: 999px;
   background: #dce7fb;
   color: #4369ad;
-  font-size: 9px;
+  font-size: 12.15px;
   font-weight: 700;
 }
 
@@ -696,12 +696,12 @@ a {
 
 .help-card strong {
   color: #445166;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .help-card span:not(.help-icon) {
   color: #8d97a5;
-  font-size: 8px;
+  font-size: 10.8px;
 }
 
 .help-card a {
@@ -732,7 +732,7 @@ a {
   border-radius: 50%;
   background: #e9eef8;
   color: #536a91;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
@@ -752,14 +752,14 @@ a {
 .sidebar-user-copy strong {
   overflow: hidden;
   color: #354357;
-  font-size: 10px;
+  font-size: 13.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .sidebar-user-copy small {
   color: #929dab;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .icon-button {
@@ -809,7 +809,7 @@ a {
   align-items: center;
   gap: 10px;
   color: #98a1ae;
-  font-size: 11px;
+  font-size: 14.85px;
 }
 
 .breadcrumbs strong {
@@ -832,7 +832,7 @@ a {
   align-items: center;
   gap: 7px;
   color: #7b8797;
-  font-size: 10px;
+  font-size: 13.5px;
 }
 
 .today-chip svg {
@@ -868,7 +868,7 @@ a {
   margin: 5px 0 4px;
   color: #273345;
   font-family: "Manrope", sans-serif;
-  font-size: 26px;
+  font-size: 35.1px;
   font-weight: 700;
   letter-spacing: -0.04em;
 }
@@ -876,7 +876,7 @@ a {
 .page-heading p {
   margin: 0;
   color: #8893a1;
-  font-size: 12px;
+  font-size: 16.2px;
 }
 
 .heading-action {
@@ -910,7 +910,7 @@ a {
 
 .welcome-kicker {
   color: #b5c8df;
-  font-size: 9px;
+  font-size: 12.15px;
   font-weight: 700;
   letter-spacing: 0.15em;
 }
@@ -918,7 +918,7 @@ a {
 .welcome-copy h2 {
   margin: 10px 0 7px;
   font-family: "Manrope", sans-serif;
-  font-size: clamp(21px, 2.4vw, 28px);
+  font-size: clamp(28.35px, 2.4vw, 37.8px);
   font-weight: 600;
   letter-spacing: -0.035em;
 }
@@ -927,7 +927,7 @@ a {
   max-width: 440px;
   margin: 0;
   color: #c0cddd;
-  font-size: 11px;
+  font-size: 14.85px;
   line-height: 1.6;
 }
 
@@ -941,7 +941,7 @@ a {
   background: none;
   color: #e1ecfa;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -955,7 +955,7 @@ a {
   right: 28px;
   bottom: 22px;
   color: #cfdae7;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .welcome-art {
@@ -1101,14 +1101,14 @@ a {
 
 .stat-label {
   color: #818c9a;
-  font-size: 10px;
+  font-size: 13.5px;
 }
 
 .stat-value {
   margin-top: 2px;
   color: #2d3849;
   font-family: "Manrope", sans-serif;
-  font-size: 25px;
+  font-size: 33.75px;
   font-weight: 700;
   letter-spacing: -0.045em;
   line-height: 1.1;
@@ -1117,7 +1117,7 @@ a {
 .stat-hint {
   margin-top: 5px;
   color: #a1a9b4;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .stat-arrow {
@@ -1158,7 +1158,7 @@ a {
   margin: 0;
   color: #344154;
   font-family: "Manrope", sans-serif;
-  font-size: 13px;
+  font-size: 17.55px;
   font-weight: 700;
   letter-spacing: -0.015em;
 }
@@ -1166,7 +1166,7 @@ a {
 .panel-heading p {
   margin: 5px 0 0;
   color: #919ba8;
-  font-size: 10px;
+  font-size: 13.5px;
   line-height: 1.45;
 }
 
@@ -1180,7 +1180,7 @@ a {
   background: transparent;
   color: #5476b4;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -1210,7 +1210,7 @@ a {
   width: 31px;
   height: 31px;
   background: #edf1f7;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .compact-main {
@@ -1224,7 +1224,7 @@ a {
 .compact-main strong {
   overflow: hidden;
   color: #465367;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1233,7 +1233,7 @@ a {
 .compact-main span {
   overflow: hidden;
   color: #929ba8;
-  font-size: 9px;
+  font-size: 12.15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1295,7 +1295,7 @@ a {
 .approval-copy strong {
   overflow: hidden;
   color: #465367;
-  font-size: 10px;
+  font-size: 13.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1303,7 +1303,7 @@ a {
 .approval-copy span {
   overflow: hidden;
   color: #929ba8;
-  font-size: 9px;
+  font-size: 12.15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1317,7 +1317,7 @@ a {
   background: transparent;
   color: #4d75b9;
   cursor: pointer;
-  font-size: 9px;
+  font-size: 12.15px;
   font-weight: 600;
 }
 
@@ -1327,7 +1327,7 @@ a {
   gap: 7px;
   margin-top: 15px;
   color: #969fad;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .panel-note svg {
@@ -1357,14 +1357,14 @@ a {
 
 .empty-state strong {
   color: #526074;
-  font-size: 11px;
+  font-size: 14.85px;
 }
 
 .empty-state > span:last-child {
   max-width: 290px;
   margin-top: 5px;
   color: #99a2ae;
-  font-size: 9px;
+  font-size: 12.15px;
   line-height: 1.5;
 }
 
@@ -1404,13 +1404,13 @@ a {
 
 .calendar-stamp span {
   color: #929dab;
-  font-size: 7px;
+  font-size: 9.45px;
   text-transform: uppercase;
 }
 
 .calendar-stamp strong {
   color: #4d5c72;
-  font-size: 12px;
+  font-size: 16.2px;
 }
 
 .status-pill {
@@ -1420,7 +1420,7 @@ a {
   gap: 6px;
   padding: 0 8px;
   border-radius: 999px;
-  font-size: 9px;
+  font-size: 12.15px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1475,7 +1475,7 @@ th {
   padding: 11px 12px;
   border-bottom: 1px solid #edf0f3;
   color: #9aa3af;
-  font-size: 8px;
+  font-size: 10.8px;
   font-weight: 700;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -1486,7 +1486,7 @@ td {
   padding: 12px;
   border-bottom: 1px solid #f0f2f5;
   color: #667284;
-  font-size: 10px;
+  font-size: 13.5px;
   vertical-align: middle;
 }
 
@@ -1511,7 +1511,7 @@ tbody tr:last-child td {
 .person-cell strong {
   overflow: hidden;
   color: #435064;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1522,12 +1522,12 @@ tbody tr:last-child td {
   display: block;
   margin-top: 4px;
   color: #9aa3af;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .leave-type {
   color: #58667a;
-  font-size: 10px;
+  font-size: 13.5px;
   white-space: nowrap;
 }
 
@@ -1551,7 +1551,7 @@ tbody tr:last-child td {
 .decision-actions .button {
   min-height: 31px;
   padding: 0 10px;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .leave-layout {
@@ -1577,7 +1577,7 @@ tbody tr:last-child td {
   flex-direction: column;
   gap: 7px;
   color: #5b6778;
-  font-size: 10px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -1596,7 +1596,7 @@ tbody tr:last-child td {
   border-radius: 7px;
   background: #fff;
   color: #465367;
-  font-size: 10px;
+  font-size: 13.5px;
 }
 
 .field textarea {
@@ -1633,7 +1633,7 @@ tbody tr:last-child td {
 .form-foot > span {
   overflow: hidden;
   color: #9aa3ae;
-  font-size: 9px;
+  font-size: 12.15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1670,13 +1670,13 @@ tbody tr:last-child td {
 
 .attendance-banner strong {
   color: #42516a;
-  font-size: 11px;
+  font-size: 14.85px;
 }
 
 .attendance-banner p {
   margin: 4px 0 0;
   color: #8995a5;
-  font-size: 9px;
+  font-size: 12.15px;
   line-height: 1.5;
 }
 
@@ -1685,7 +1685,7 @@ tbody tr:last-child td {
   align-items: center;
   gap: 5px;
   color: #667da7;
-  font-size: 8px;
+  font-size: 10.8px;
   font-weight: 700;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -1711,12 +1711,143 @@ tbody tr:last-child td {
 .optional-label {
   margin-left: 4px;
   color: #a0a9b5;
-  font-size: 8px;
+  font-size: 10.8px;
   font-weight: 400;
 }
 
 .panel-heading-search {
   align-items: center;
+}
+
+.attendance-calendar-heading {
+  align-items: center;
+}
+
+.attendance-calendar-controls,
+.attendance-calendar-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attendance-calendar-navigation {
+  gap: 5px;
+  color: #536177;
+}
+
+.attendance-calendar-navigation strong {
+  min-width: 125px;
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.attendance-calendar-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.attendance-calendar {
+  min-width: 630px;
+  table-layout: fixed;
+}
+
+.attendance-calendar th {
+  padding: 9px 7px;
+  text-align: center;
+}
+
+.attendance-calendar td {
+  height: 88px;
+  padding: 7px;
+  vertical-align: top;
+}
+
+.attendance-calendar-day {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  color: #627084;
+  font-size: 12.15px;
+}
+
+.attendance-calendar-today {
+  background: #3869ca;
+  color: #fff;
+  font-weight: 700;
+}
+
+.attendance-calendar-events {
+  display: grid;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.attendance-event {
+  display: block;
+  overflow: hidden;
+  padding: 3px 5px;
+  border-radius: 4px;
+  font-size: 10.8px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attendance-event-present {
+  background: #eaf6ef;
+  color: #428366;
+}
+
+.attendance-event-late,
+.attendance-event-leave {
+  background: #f0edfa;
+  color: #7257aa;
+}
+
+.attendance-event-absent {
+  background: #fff0ef;
+  color: #b25551;
+}
+
+.attendance-calendar-more {
+  color: #778294;
+  font-size: 10.8px;
+}
+
+.attendance-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 13px;
+}
+
+.attendance-calendar-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #778294;
+  font-size: 10.8px;
+}
+
+.attendance-legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.attendance-legend-present {
+  background: #428366;
+}
+
+.attendance-legend-late,
+.attendance-legend-leave {
+  background: #7257aa;
+}
+
+.attendance-legend-absent {
+  background: #b25551;
 }
 
 .search-field {
@@ -1737,7 +1868,7 @@ tbody tr:last-child td {
   border: 0;
   outline: 0;
   color: #526074;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .search-field input:focus-visible {
@@ -1748,12 +1879,12 @@ tbody tr:last-child td {
   min-width: 130px;
   min-height: 34px;
   padding: 0 25px 0 9px;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .muted-cell {
   color: #95a0ac;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .admin-note {
@@ -1770,7 +1901,7 @@ tbody tr:last-child td {
 .admin-note p {
   margin: 0;
   color: #8591a3;
-  font-size: 10px;
+  font-size: 13.5px;
   line-height: 1.5;
 }
 
@@ -1786,7 +1917,7 @@ tbody tr:last-child td {
   padding: 11px 13px;
   border: 1px solid;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: 13.5px;
   line-height: 1.45;
 }
 
@@ -1821,7 +1952,7 @@ tbody tr:last-child td {
   padding: 14px clamp(24px, 4vw, 54px) 18px;
   border-top: 1px solid #e9edf1;
   color: #9ba4b0;
-  font-size: 9px;
+  font-size: 12.15px;
 }
 
 .page-footer a {
@@ -1875,12 +2006,12 @@ tbody tr:last-child td {
   }
 
   .login-brand {
-    padding-right: 38px;
-    padding-left: 38px;
+    padding-right: 32px;
+    padding-left: 32px;
   }
 
   .login-brand > .brand-mark-large {
-    left: 38px;
+    left: 32px;
   }
 
   .stat-grid {
@@ -1921,16 +2052,16 @@ tbody tr:last-child td {
     display: flex;
     align-items: center;
     gap: 9px;
-    margin-bottom: 34px;
+    margin-bottom: 24px;
   }
 
   .mobile-brand .brand-name {
     color: #1c2d43;
-    font-size: 16px;
+    font-size: 21.6px;
   }
 
   .login-card h2 {
-    font-size: 26px;
+    font-size: 35.1px;
   }
 
   .login-legal {
@@ -1980,7 +2111,7 @@ tbody tr:last-child td {
   .breadcrumbs {
     flex: 1;
     margin-left: 8px;
-    font-size: 10px;
+    font-size: 13.5px;
   }
 
   .topbar-right {
@@ -2010,19 +2141,19 @@ tbody tr:last-child td {
   }
 
   .page-heading h1 {
-    font-size: 23px;
+    font-size: 31.05px;
   }
 
   .page-heading p {
     max-width: 430px;
-    font-size: 11px;
+    font-size: 14.85px;
     line-height: 1.55;
   }
 
   .heading-action {
     min-height: 35px;
     padding: 0 9px;
-    font-size: 9px;
+    font-size: 12.15px;
   }
 
   .welcome-banner {
@@ -2040,11 +2171,11 @@ tbody tr:last-child td {
   }
 
   .welcome-copy h2 {
-    font-size: 22px;
+    font-size: 29.7px;
   }
 
   .welcome-copy p {
-    font-size: 10px;
+    font-size: 13.5px;
   }
 
   .banner-date {
@@ -2063,7 +2194,7 @@ tbody tr:last-child td {
   }
 
   .stat-value {
-    font-size: 23px;
+    font-size: 31.05px;
   }
 
   .panel {
@@ -2075,17 +2206,28 @@ tbody tr:last-child td {
   }
 
   .panel-heading h2 {
-    font-size: 12px;
+    font-size: 16.2px;
   }
 
   .page-footer {
     padding: 12px 16px 15px;
-    font-size: 8px;
+    font-size: 10.8px;
   }
 
   .attendance-banner {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .attendance-calendar-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .attendance-calendar-controls {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
   }
 
   .attendance-admin-badge {
@@ -2121,7 +2263,7 @@ tbody tr:last-child td {
 
   .welcome-copy h2 {
     max-width: 290px;
-    font-size: 20px;
+    font-size: 27px;
   }
 
   .welcome-copy p {
@@ -2143,15 +2285,15 @@ tbody tr:last-child td {
   }
 
   .stat-label {
-    font-size: 9px;
+    font-size: 12.15px;
   }
 
   .stat-value {
-    font-size: 22px;
+    font-size: 29.7px;
   }
 
   .stat-hint {
-    font-size: 8px;
+    font-size: 10.8px;
   }
 
   .panel {
