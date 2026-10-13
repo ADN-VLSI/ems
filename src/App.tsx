@@ -1,0 +1,1552 @@
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import {
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  type User,
+} from "firebase/auth";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  CalendarCheck2,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  FilePlus2,
+  Fingerprint,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Plus,
+  Search,
+  ShieldCheck,
+  Users,
+  X,
+  XCircle,
+} from "lucide-react";
+import { auth, db, googleProvider, ADMIN_EMAIL } from "./firebase";
+import {
+  ensureEmployeeProfile,
+  listenToAttendance,
+  listenToEmployees,
+  listenToLeaveRequests,
+  listenToProfile,
+} from "./data";
+import type {
+  ApprovalStatus,
+  AttendanceRecord,
+  AttendanceStatus,
+  EmployeeProfile,
+  LeaveRequest,
+  LeaveStatus,
+  PortalSection,
+} from "./types";
+
+type Notice = { kind: "success" | "error"; message: string };
+
+const sectionTitles: Record<PortalSection, string> = {
+  overview: "Overview",
+  leaves: "Leave management",
+  attendance: "Attendance",
+  team: "Employee directory",
+};
+
+const localToday = new Date();
+const today = `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}-${String(localToday.getDate()).padStart(2, "0")}`;
+
+function friendlyError(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return "Something went wrong. Please try again.";
+}
+
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(date);
+}
+
+function formatTimestamp(value?: { toDate: () => Date }): string {
+  if (!value) return "Just now";
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(value.toDate());
+}
+
+function dayCount(start: string, end: string): number {
+  const from = new Date(`${start}T00:00:00`);
+  const to = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
+    return 0;
+  }
+  return Math.floor((to.getTime() - from.getTime()) / 86_400_000) + 1;
+}
+
+function StatusPill({ status }: { status: string }) {
+  const labels: Record<string, string> = {
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Declined",
+    present: "Present",
+    late: "Late",
+    absent: "Absent",
+    leave: "On leave",
+  };
+  return (
+    <span className={`status-pill status-${status}`}>
+      <span className="status-dot" />
+      {labels[status] ?? status}
+    </span>
+  );
+}
+
+function Initials({ name }: { name: string }) {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+  return <span className="avatar">{initials || "AD"}</span>;
+}
+
+function Button({
+  children,
+  variant = "primary",
+  type = "button",
+  disabled = false,
+  onClick,
+  className = "",
+}: {
+  children: ReactNode;
+  variant?: "primary" | "secondary" | "ghost" | "danger";
+  type?: "button" | "submit";
+  disabled?: boolean;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      className={`button button-${variant} ${className}`}
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SignInScreen({
+  busy,
+  error,
+  onSignIn,
+}: {
+  busy: boolean;
+  error: string;
+  onSignIn: () => void;
+}) {
+  return (
+    <main className="login-shell">
+      <section className="login-brand">
+        <div className="brand-mark brand-mark-large">
+          <Fingerprint size={28} strokeWidth={1.8} />
+        </div>
+        <div className="brand-copy">
+          <span className="brand-name">ADN</span>
+          <span className="brand-caption">SEMICONDUCTORS</span>
+        </div>
+        <div className="login-brand-copy">
+          <div className="eyebrow eyebrow-light">PEOPLE FIRST. BUILT TOGETHER.</div>
+          <h1>A better workday starts here.</h1>
+          <p>
+            Your one place for time off, attendance, and everything that keeps
+            our team moving.
+          </p>
+        </div>
+        <div className="login-footnote">
+          <ShieldCheck size={17} />
+          Secure access for ADN team members
+        </div>
+        <div className="brand-decoration brand-decoration-one" />
+        <div className="brand-decoration brand-decoration-two" />
+      </section>
+
+      <section className="login-content">
+        <div className="login-card">
+          <div className="mobile-brand">
+            <span className="brand-mark">
+              <Fingerprint size={22} />
+            </span>
+            <span className="brand-name">ADN</span>
+          </div>
+          <span className="eyebrow">EMPLOYEE PORTAL</span>
+          <h2>Welcome to your workspace</h2>
+          <p className="login-description">
+            Sign in with your Google account to get started.
+          </p>
+          {error && <div className="form-error">{error}</div>}
+          <Button className="google-button" disabled={busy} onClick={onSignIn}>
+            <GoogleGlyph />
+            {busy ? "Connecting…" : "Continue with Google"}
+            {!busy && <ArrowRight size={17} />}
+          </Button>
+          <div className="login-divider">
+            <span>YOUR ACCOUNT, YOUR ACCESS</span>
+          </div>
+          <ul className="login-benefits">
+            <li>
+              <span className="benefit-icon"><CalendarDays size={16} /></span>
+              Apply for leave and follow its progress
+            </li>
+            <li>
+              <span className="benefit-icon"><Clock3 size={16} /></span>
+              View attendance recorded by your admin
+            </li>
+          </ul>
+          <p className="approval-note">
+            New here? Your account will be ready after admin approval.
+          </p>
+        </div>
+        <div className="login-legal">
+          By continuing, you agree to use this portal for ADN work purposes.
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function GoogleGlyph() {
+  return (
+    <svg aria-hidden="true" className="google-glyph" viewBox="0 0 48 48">
+      <path
+        fill="#4285F4"
+        d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5h6.6c3.9-3.6 6.1-8.8 6.1-14.9Z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 44c5.5 0 10.1-1.8 13.5-4.8l-6.6-5c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.2A20 20 0 0 0 24 44Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M12.6 27.8a12 12 0 0 1 0-7.6V15H5.8a20 20 0 0 0 0 18Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M24 11.8c3 0 5.7 1 7.8 3l5.8-5.8C34.1 5.7 29.5 4 24 4A20 20 0 0 0 5.8 15l6.8 5.2c1.6-4.8 6.1-8.4 11.4-8.4Z"
+      />
+    </svg>
+  );
+}
+
+function PendingAccess({
+  status,
+  user,
+  onSignOut,
+}: {
+  status: ApprovalStatus;
+  user: User;
+  onSignOut: () => void;
+}) {
+  const rejected = status === "rejected";
+  return (
+    <main className="access-shell">
+      <div className="access-card">
+        <div className={`access-icon ${rejected ? "access-icon-rejected" : ""}`}>
+          {rejected ? <XCircle size={27} /> : <Clock3 size={27} />}
+        </div>
+        <span className="eyebrow">ADN EMPLOYEE PORTAL</span>
+        <h1>{rejected ? "Access was not approved" : "You’re on the list"}</h1>
+        <p>
+          {rejected
+            ? "Your account was not approved for this portal. Please contact your administrator if you think this is a mistake."
+            : "Your Google account is registered. An administrator needs to approve your access before you can use employee features."}
+        </p>
+        <div className="account-chip">
+          <Initials name={user.displayName || user.email || "ADN"} />
+          <span>{user.email}</span>
+          <StatusPill status={status} />
+        </div>
+        <Button variant="secondary" onClick={onSignOut}>
+          <LogOut size={16} />
+          Sign out
+        </Button>
+        <div className="access-admin">Questions? Contact adn.semicon@gmail.com</div>
+      </div>
+    </main>
+  );
+}
+
+function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<EmployeeProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [signInBusy, setSignInBusy] = useState(false);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [error, setError] = useState("");
+  const [section, setSection] = useState<PortalSection>("overview");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, async (currentUser) => {
+      setError("");
+      setAuthLoading(true);
+      setUser(currentUser);
+      setProfile(null);
+      if (currentUser?.email) {
+        try {
+          await ensureEmployeeProfile(
+            currentUser.uid,
+            currentUser.email,
+            currentUser.displayName || currentUser.email.split("@")[0],
+          );
+        } catch (profileError) {
+          setError(
+            `We could not create your employee profile. ${friendlyError(profileError)}`,
+          );
+        }
+      }
+      setAuthLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!user || isAdmin) {
+      setProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+
+    setProfileLoading(true);
+    return listenToProfile(
+      user.uid,
+      (nextProfile) => {
+        setProfile(nextProfile);
+        setProfileLoading(false);
+      },
+      (listenError) => {
+        setError(`Could not load your employee profile. ${friendlyError(listenError)}`);
+        setProfileLoading(false);
+      },
+    );
+  }, [user, isAdmin]);
+
+  useEffect(() => {
+    if (!user || (!isAdmin && profile?.status !== "approved")) {
+      setEmployees([]);
+      setLeaveRequests([]);
+      setAttendance([]);
+      return;
+    }
+
+    const fail = (listenError: Error) =>
+      setError(`Could not load portal data. ${friendlyError(listenError)}`);
+    const stopLeaves = listenToLeaveRequests(
+      user.uid,
+      Boolean(isAdmin),
+      setLeaveRequests,
+      fail,
+    );
+    const stopAttendance = listenToAttendance(
+      user.uid,
+      Boolean(isAdmin),
+      setAttendance,
+      fail,
+    );
+    const stopEmployees = isAdmin
+      ? listenToEmployees(setEmployees, fail)
+      : () => setEmployees([]);
+
+    return () => {
+      stopLeaves();
+      stopAttendance();
+      stopEmployees();
+    };
+  }, [user, isAdmin, profile?.status]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(null), 4200);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
+  const approvedEmployees = useMemo(
+    () => employees.filter((employee) => employee.status === "approved"),
+    [employees],
+  );
+  const pendingEmployees = useMemo(
+    () => employees.filter((employee) => employee.status === "pending"),
+    [employees],
+  );
+  const pendingLeaves = useMemo(
+    () => leaveRequests.filter((request) => request.status === "pending"),
+    [leaveRequests],
+  );
+  async function handleSignIn() {
+    setSignInBusy(true);
+    setError("");
+    googleProvider.setCustomParameters({ prompt: "select_account" });
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (signInError) {
+      setError(friendlyError(signInError));
+    } finally {
+      setSignInBusy(false);
+    }
+  }
+
+  async function handleSignOut() {
+    try {
+      await signOut(auth);
+      setSection("overview");
+      setNotice(null);
+    } catch (signOutError) {
+      setError(`Could not sign out. ${friendlyError(signOutError)}`);
+    }
+  }
+
+  async function changeApproval(
+    employee: EmployeeProfile,
+    status: Exclude<ApprovalStatus, "pending">,
+  ) {
+    try {
+      await updateDoc(doc(db, "users", employee.uid), {
+        status,
+        updatedAt: serverTimestamp(),
+      });
+      setNotice({
+        kind: "success",
+        message: `${employee.displayName} ${status === "approved" ? "approved" : "declined"}.`,
+      });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function reviewLeave(
+    request: LeaveRequest,
+    status: Exclude<LeaveStatus, "pending">,
+  ) {
+    try {
+      await updateDoc(doc(db, "leaveRequests", request.id), {
+        status,
+        reviewedAt: serverTimestamp(),
+        reviewedBy: user?.email,
+      });
+      setNotice({
+        kind: "success",
+        message: `Leave request ${status === "approved" ? "approved" : "declined"}.`,
+      });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function submitLeave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user || !profile) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const type = String(form.get("type") ?? "");
+    const startDate = String(form.get("startDate") ?? "");
+    const endDate = String(form.get("endDate") ?? "");
+    const reason = String(form.get("reason") ?? "").trim();
+    if (!type || !startDate || !endDate || !reason) {
+      setNotice({ kind: "error", message: "Complete every field before submitting." });
+      return;
+    }
+    if (endDate < startDate) {
+      setNotice({ kind: "error", message: "The end date must be on or after the start date." });
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, "leaveRequests"), {
+        employeeId: user.uid,
+        employeeEmail: user.email,
+        employeeName: profile.displayName,
+        type,
+        startDate,
+        endDate,
+        reason,
+        status: "pending",
+        createdAt: serverTimestamp(),
+      });
+      formElement.reset();
+      setNotice({ kind: "success", message: "Your leave request has been submitted." });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function recordAttendance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user) return;
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const employeeId = String(form.get("employeeId") ?? "");
+    const date = String(form.get("date") ?? "");
+    const status = String(form.get("status") ?? "") as AttendanceStatus;
+    const note = String(form.get("note") ?? "").trim();
+    const employee = approvedEmployees.find((item) => item.uid === employeeId);
+    if (!employee || !date || !status) {
+      setNotice({ kind: "error", message: "Select an employee, date, and attendance status." });
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, "attendance", `${employee.uid}_${date}`), {
+        employeeId: employee.uid,
+        employeeName: employee.displayName,
+        date,
+        status,
+        note,
+        recordedAt: serverTimestamp(),
+        recordedBy: user.email,
+      });
+      formElement.reset();
+      setNotice({ kind: "success", message: `Attendance saved for ${employee.displayName}.` });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <main className="loading-shell">
+        <div className="loader-mark"><Fingerprint size={27} /></div>
+        <span>Opening your workspace…</span>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return <SignInScreen busy={signInBusy} error={error} onSignIn={handleSignIn} />;
+  }
+
+  if (!isAdmin) {
+    if (profileLoading || !profile) {
+      return (
+        <main className="loading-shell">
+          <div className="loader-mark"><Fingerprint size={27} /></div>
+          <span>{error || "Preparing your employee profile…"}</span>
+          {error && <Button variant="secondary" onClick={handleSignOut}>Sign out</Button>}
+        </main>
+      );
+    }
+    if (profile.status !== "approved") {
+      return (
+        <PendingAccess
+          status={profile.status}
+          user={user}
+          onSignOut={handleSignOut}
+        />
+      );
+    }
+  }
+
+  const activeSection = isAdmin && section === "team" ? "team" : section;
+
+  return (
+    <div className="portal-shell">
+      {mobileNavOpen && (
+        <button
+          aria-label="Close navigation"
+          className="mobile-backdrop"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+      <aside className={`sidebar ${mobileNavOpen ? "sidebar-open" : ""}`}>
+        <div className="sidebar-brand">
+          <div className="brand-mark"><Fingerprint size={22} /></div>
+          <div className="brand-copy">
+            <span className="brand-name">ADN</span>
+            <span className="brand-caption">PEOPLE PORTAL</span>
+          </div>
+          <button
+            className="icon-button sidebar-close"
+            aria-label="Close navigation"
+            onClick={() => setMobileNavOpen(false)}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="workspace-chip">
+          <span className="workspace-avatar">A</span>
+          <span>
+            <strong>ADN Semiconductors</strong>
+            <small>{isAdmin ? "Administrator" : "Employee workspace"}</small>
+          </span>
+          <ChevronDown size={15} />
+        </div>
+        <span className="nav-label">WORKSPACE</span>
+        <nav className="main-nav" aria-label="Main navigation">
+          <NavButton
+            icon={<LayoutDashboard size={18} />}
+            active={activeSection === "overview"}
+            onClick={() => { setSection("overview"); setMobileNavOpen(false); }}
+          >
+            Overview
+          </NavButton>
+          <NavButton
+            icon={<CalendarDays size={18} />}
+            active={activeSection === "leaves"}
+            onClick={() => { setSection("leaves"); setMobileNavOpen(false); }}
+          >
+            Leave requests
+            {isAdmin && pendingLeaves.length > 0 && (
+              <span className="nav-count">{pendingLeaves.length}</span>
+            )}
+          </NavButton>
+          <NavButton
+            icon={<CalendarCheck2 size={18} />}
+            active={activeSection === "attendance"}
+            onClick={() => { setSection("attendance"); setMobileNavOpen(false); }}
+          >
+            Attendance
+          </NavButton>
+          {isAdmin && (
+            <NavButton
+              icon={<Users size={18} />}
+              active={activeSection === "team"}
+              onClick={() => { setSection("team"); setMobileNavOpen(false); }}
+            >
+              Employees
+              {pendingEmployees.length > 0 && (
+                <span className="nav-count">{pendingEmployees.length}</span>
+              )}
+            </NavButton>
+          )}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="help-card">
+            <span className="help-icon"><ShieldCheck size={17} /></span>
+            <div>
+              <strong>Need a hand?</strong>
+              <span>Contact the ADN administrator.</span>
+            </div>
+            <a href="mailto:adn.semicon@gmail.com" aria-label="Email administrator">
+              <ArrowDownRight size={16} />
+            </a>
+          </div>
+          <div className="sidebar-user">
+            {user.photoURL ? (
+              <img className="avatar avatar-photo" src={user.photoURL} alt="" />
+            ) : (
+              <Initials name={user.displayName || "ADN"} />
+            )}
+            <span className="sidebar-user-copy">
+              <strong>{user.displayName || "ADN team member"}</strong>
+              <small>{isAdmin ? "Admin" : "Team member"}</small>
+            </span>
+            <button className="icon-button" aria-label="Sign out" onClick={handleSignOut}>
+              <LogOut size={17} />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main className="main-panel">
+        <header className="topbar">
+          <button
+            className="icon-button mobile-menu"
+            aria-label="Open navigation"
+            onClick={() => setMobileNavOpen(true)}
+          >
+            <Menu size={20} />
+          </button>
+          <div className="breadcrumbs">
+            <span>ADN</span>
+            <span className="crumb-divider">/</span>
+            <strong>{sectionTitles[activeSection]}</strong>
+          </div>
+          <div className="topbar-right">
+            <span className="today-chip"><CalendarDays size={15} /> {formatDate(today)}</span>
+            <span className="topbar-divider" />
+            {user.photoURL ? (
+              <img className="avatar avatar-photo" src={user.photoURL} alt="" />
+            ) : (
+              <Initials name={user.displayName || "ADN"} />
+            )}
+          </div>
+        </header>
+
+        <div className="page-content">
+          <div className="page-heading">
+            <div>
+              <span className="eyebrow">{isAdmin ? "ADMIN CONSOLE" : "YOUR WORKSPACE"}</span>
+              <h1>{sectionTitles[activeSection]}</h1>
+              <p>
+                {activeSection === "overview"
+                  ? isAdmin
+                    ? "A clear view of your people operations."
+                    : `Good to see you, ${(user.displayName || "there").split(" ")[0]}. Here’s your work at a glance.`
+                  : activeSection === "leaves"
+                    ? isAdmin
+                      ? "Review employee requests and keep your team moving."
+                      : "Plan time away and keep track of your requests."
+                    : activeSection === "attendance"
+                      ? isAdmin
+                        ? "Record daily attendance for your approved team."
+                        : "Your attendance is recorded by the ADN administrator."
+                      : "Manage access and keep your employee list up to date."}
+              </p>
+            </div>
+            {activeSection === "leaves" && !isAdmin && (
+              <a className="button button-primary heading-action" href="#leave-form">
+                <Plus size={17} /> New leave request
+              </a>
+            )}
+          </div>
+
+          {error && (
+            <div className="notice notice-error" role="alert">
+              <XCircle size={17} /> {error}
+              <button className="icon-button" aria-label="Dismiss" onClick={() => setError("")}>
+                <X size={16} />
+              </button>
+            </div>
+          )}
+          {notice && (
+            <div
+              className={`notice ${notice.kind === "success" ? "notice-success" : "notice-error"}`}
+              role="status"
+            >
+              {notice.kind === "success" ? <CheckCircle2 size={17} /> : <XCircle size={17} />}
+              {notice.message}
+              <button className="icon-button" aria-label="Dismiss" onClick={() => setNotice(null)}>
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
+          {activeSection === "overview" && (
+            <Overview
+              isAdmin={Boolean(isAdmin)}
+              user={user}
+              employees={approvedEmployees}
+              pendingEmployees={pendingEmployees}
+              requests={leaveRequests}
+              pendingLeaves={pendingLeaves}
+              attendance={attendance}
+              onNavigate={setSection}
+              onApprove={changeApproval}
+              onReview={reviewLeave}
+            />
+          )}
+          {activeSection === "leaves" && (
+            <LeavesPage
+              isAdmin={Boolean(isAdmin)}
+              user={user}
+              profile={profile}
+              requests={leaveRequests}
+              onSubmit={submitLeave}
+              onReview={reviewLeave}
+            />
+          )}
+          {activeSection === "attendance" && (
+            <AttendancePage
+              isAdmin={Boolean(isAdmin)}
+              user={user}
+              employees={approvedEmployees}
+              records={attendance}
+              onSubmit={recordAttendance}
+            />
+          )}
+          {activeSection === "team" && isAdmin && (
+            <TeamPage employees={employees} onApprove={changeApproval} />
+          )}
+        </div>
+        <footer className="page-footer">
+          <span>ADN Semiconductors · Employee portal</span>
+          <a href="mailto:adn.semicon@gmail.com">Support <ArrowRight size={13} /></a>
+        </footer>
+      </main>
+    </div>
+  );
+}
+
+function NavButton({
+  children,
+  icon,
+  active,
+  onClick,
+}: {
+  children: ReactNode;
+  icon: ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-current={active ? "page" : undefined}
+      className={`nav-button ${active ? "nav-button-active" : ""}`}
+      onClick={onClick}
+    >
+      {icon}
+      <span>{children}</span>
+    </button>
+  );
+}
+
+function Overview({
+  isAdmin,
+  user,
+  employees,
+  pendingEmployees,
+  requests,
+  pendingLeaves,
+  attendance,
+  onNavigate,
+  onApprove,
+  onReview,
+}: {
+  isAdmin: boolean;
+  user: User;
+  employees: EmployeeProfile[];
+  pendingEmployees: EmployeeProfile[];
+  requests: LeaveRequest[];
+  pendingLeaves: LeaveRequest[];
+  attendance: AttendanceRecord[];
+  onNavigate: (section: PortalSection) => void;
+  onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
+  onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
+}) {
+  const presentToday = attendance.filter(
+    (record) => record.date === today && ["present", "late"].includes(record.status),
+  ).length;
+  const latestRequests = requests.slice(0, 5);
+  const firstName = user.displayName?.split(" ")[0] || "there";
+
+  return (
+    <>
+      <section className={`welcome-banner ${isAdmin ? "welcome-admin" : ""}`}>
+        <div className="welcome-copy">
+          <span className="welcome-kicker">{isAdmin ? "PEOPLE OPERATIONS" : "YOUR ADN WORKSPACE"}</span>
+          <h2>{isAdmin           ? "Welcome back, Admin." : `A great day to make an impact, ${firstName}.`}</h2>
+          <p>
+            {isAdmin
+              ? "Your team is in good hands. Here’s what needs your attention today."
+              : "Take care of the important things, then get back to what you do best."}
+          </p>
+          {!isAdmin && (
+            <button className="banner-link" onClick={() => onNavigate("leaves")}>
+              Manage your time off <ArrowRight size={15} />
+            </button>
+          )}
+        </div>
+        <div className="welcome-art" aria-hidden="true">
+          <div className="art-orbit art-orbit-one" />
+          <div className="art-orbit art-orbit-two" />
+          <div className="art-sun" />
+          <div className="art-line art-line-one" />
+          <div className="art-line art-line-two" />
+          <div className="art-dot art-dot-one" />
+          <div className="art-dot art-dot-two" />
+        </div>
+        <span className="banner-date">{formatDate(today)}</span>
+      </section>
+
+      {isAdmin ? (
+        <>
+          <div className="stat-grid">
+            <StatCard
+              icon={<Users size={18} />}
+              label="Approved employees"
+              value={employees.length}
+              hint="Active team accounts"
+              tone="blue"
+            />
+            <StatCard
+              icon={<Clock3 size={18} />}
+              label="Needs approval"
+              value={pendingEmployees.length}
+              hint="Employee accounts"
+              tone="amber"
+              onClick={() => onNavigate("team")}
+            />
+            <StatCard
+              icon={<FilePlus2 size={18} />}
+              label="Leave requests"
+              value={pendingLeaves.length}
+              hint="Waiting for review"
+              tone="violet"
+              onClick={() => onNavigate("leaves")}
+            />
+            <StatCard
+              icon={<CalendarCheck2 size={18} />}
+              label="Attendance today"
+              value={presentToday}
+              hint="Present or marked late"
+              tone="green"
+              onClick={() => onNavigate("attendance")}
+            />
+          </div>
+          <div className="dashboard-grid dashboard-grid-admin">
+            <section className="panel">
+              <PanelHeading
+                title="Leave requests"
+                subtitle={pendingLeaves.length ? "A little review goes a long way." : "No requests waiting on you."}
+                actionLabel="View all"
+                onAction={() => onNavigate("leaves")}
+              />
+              <div className="compact-list">
+                {pendingLeaves.slice(0, 4).map((request) => (
+                  <div className="compact-row" key={request.id}>
+                    <Initials name={request.employeeName} />
+                    <div className="compact-main">
+                      <strong>{request.employeeName}</strong>
+                      <span>{request.type} · {formatDate(request.startDate)} – {formatDate(request.endDate)}</span>
+                    </div>
+                    <div className="row-actions">
+                      <button
+                        className="mini-action mini-action-approve"
+                        aria-label={`Approve ${request.employeeName}'s leave`}
+                        onClick={() => onReview(request, "approved")}
+                      >
+                        <Check size={15} />
+                      </button>
+                      <button
+                        className="mini-action mini-action-decline"
+                        aria-label={`Decline ${request.employeeName}'s leave`}
+                        onClick={() => onReview(request, "rejected")}
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {pendingLeaves.length === 0 && (
+                  <EmptyState
+                    icon={<CheckCircle2 size={20} />}
+                    title="All caught up"
+                    text="New leave requests will appear here."
+                  />
+                )}
+              </div>
+            </section>
+            <section className="panel attention-panel">
+              <PanelHeading title="Approval queue" subtitle="New people, ready to join." />
+              {pendingEmployees.length ? (
+                <div className="approval-list">
+                  {pendingEmployees.slice(0, 4).map((employee) => (
+                    <div className="approval-item" key={employee.uid}>
+                      <Initials name={employee.displayName} />
+                      <div className="approval-copy">
+                        <strong>{employee.displayName}</strong>
+                        <span>{employee.email}</span>
+                      </div>
+                      <button
+                        className="approve-text"
+                        onClick={() => onApprove(employee, "approved")}
+                      >
+                        Approve <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {pendingEmployees.length > 4 && (
+                    <button className="text-link" onClick={() => onNavigate("team")}>
+                      View {pendingEmployees.length - 4} more <ArrowRight size={14} />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<ShieldCheck size={20} />}
+                  title="No approvals pending"
+                  text="New registrations will wait here for your review."
+                />
+              )}
+              <div className="panel-note">
+                <ShieldCheck size={15} />
+                Only you can approve employee accounts.
+              </div>
+            </section>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="stat-grid stat-grid-employee">
+            <StatCard
+              icon={<CalendarDays size={18} />}
+              label="Leave requests"
+              value={requests.length}
+              hint="All time"
+              tone="blue"
+              onClick={() => onNavigate("leaves")}
+            />
+            <StatCard
+              icon={<Clock3 size={18} />}
+              label="Awaiting a decision"
+              value={requests.filter((request) => request.status === "pending").length}
+              hint="Leave requests"
+              tone="amber"
+              onClick={() => onNavigate("leaves")}
+            />
+            <StatCard
+              icon={<CheckCircle2 size={18} />}
+              label="Approved leave"
+              value={requests.filter((request) => request.status === "approved").length}
+              hint="Requests approved"
+              tone="green"
+              onClick={() => onNavigate("leaves")}
+            />
+            <StatCard
+              icon={<CalendarCheck2 size={18} />}
+              label="Attendance entries"
+              value={attendance.length}
+              hint="Recorded by admin"
+              tone="violet"
+              onClick={() => onNavigate("attendance")}
+            />
+          </div>
+          <div className="dashboard-grid">
+            <section className="panel">
+              <PanelHeading
+                title="Your recent leave"
+                subtitle="A quick look at your latest requests."
+                actionLabel="View all"
+                onAction={() => onNavigate("leaves")}
+              />
+              <LeaveTable requests={latestRequests} showEmployee={false} />
+            </section>
+            <section className="panel">
+              <PanelHeading
+                title="Your attendance"
+                subtitle="Your record, maintained by the admin."
+                actionLabel="View record"
+                onAction={() => onNavigate("attendance")}
+              />
+              {attendance.slice(0, 4).length ? (
+                <div className="attendance-mini-list">
+                  {attendance.slice(0, 4).map((record) => (
+                    <div className="attendance-mini-row" key={record.id}>
+                      <div className="calendar-stamp">
+                        <span>{new Date(`${record.date}T00:00:00`).toLocaleDateString("en", { month: "short" })}</span>
+                        <strong>{new Date(`${record.date}T00:00:00`).getDate()}</strong>
+                      </div>
+                      <div className="compact-main">
+                        <strong>{formatDate(record.date)}</strong>
+                        <span>{record.note || "Attendance recorded"}</span>
+                      </div>
+                      <StatusPill status={record.status} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<CalendarCheck2 size={20} />}
+                  title="No attendance recorded yet"
+                  text="Your administrator records attendance for the team."
+                />
+              )}
+            </section>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  hint,
+  tone,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+  hint: string;
+  tone: string;
+  onClick?: () => void;
+}) {
+  const contents = (
+    <>
+      <div className={`stat-icon stat-icon-${tone}`}>{icon}</div>
+      <div className="stat-label">{label}</div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-hint">{hint}</div>
+      {onClick && <ArrowDownRight className="stat-arrow" size={17} />}
+    </>
+  );
+  return onClick ? (
+    <button className="stat-card stat-card-clickable" onClick={onClick}>{contents}</button>
+  ) : (
+    <div className="stat-card">{contents}</div>
+  );
+}
+
+function PanelHeading({
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+}: {
+  title: string;
+  subtitle: string;
+  actionLabel?: string;
+  onAction?: () => void;
+}) {
+  return (
+    <div className="panel-heading">
+      <div>
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+      </div>
+      {actionLabel && onAction && (
+        <button className="text-link" onClick={onAction}>
+          {actionLabel} <ArrowRight size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  text,
+}: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="empty-state">
+      <span className="empty-icon">{icon}</span>
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function LeavesPage({
+  isAdmin,
+  user,
+  profile,
+  requests,
+  onSubmit,
+  onReview,
+}: {
+  isAdmin: boolean;
+  user: User;
+  profile: EmployeeProfile | null;
+  requests: LeaveRequest[];
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
+}) {
+  const waiting = requests.filter((request) => request.status === "pending").length;
+  return (
+    <div className="content-stack">
+      {isAdmin ? (
+        <>
+          <section className="panel">
+            <PanelHeading
+              title="Requests to review"
+              subtitle={waiting ? `${waiting} request${waiting === 1 ? "" : "s"} need your decision.` : "Everything has been reviewed."}
+            />
+            {requests.filter((request) => request.status === "pending").length ? (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>EMPLOYEE</th>
+                      <th>LEAVE TYPE</th>
+                      <th>DATES</th>
+                      <th>DAYS</th>
+                      <th>REASON</th>
+                      <th className="align-right">DECISION</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requests.filter((request) => request.status === "pending").map((request) => (
+                      <tr key={request.id}>
+                        <td>
+                          <div className="person-cell">
+                            <Initials name={request.employeeName} />
+                            <span><strong>{request.employeeName}</strong><small>{request.employeeEmail}</small></span>
+                          </div>
+                        </td>
+                        <td><span className="leave-type">{request.type}</span></td>
+                        <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
+                        <td>{dayCount(request.startDate, request.endDate)}</td>
+                        <td className="reason-cell">{request.reason}</td>
+                        <td className="align-right">
+                          <div className="decision-actions">
+                            <Button variant="secondary" onClick={() => onReview(request, "rejected")}>Decline</Button>
+                            <Button onClick={() => onReview(request, "approved")}><Check size={15} /> Approve</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState icon={<CheckCircle2 size={20} />} title="No pending requests" text="New employee requests will show up here." />
+            )}
+          </section>
+          <section className="panel">
+            <PanelHeading title="All requests" subtitle="A record of leave decisions across the team." />
+            <LeaveTable requests={requests} showEmployee />
+          </section>
+        </>
+      ) : (
+        <div className="leave-layout">
+          <section className="panel leave-form-panel" id="leave-form">
+            <PanelHeading
+              title="Request time off"
+              subtitle="Your request will be sent to the ADN administrator."
+            />
+            <form className="form-grid" onSubmit={onSubmit}>
+              <label className="field field-full">
+                Leave type
+                <select name="type" required defaultValue="">
+                  <option value="" disabled>Select a leave type</option>
+                  <option>Annual leave</option>
+                  <option>Sick leave</option>
+                  <option>Personal leave</option>
+                  <option>Unpaid leave</option>
+                </select>
+              </label>
+              <label className="field">
+                Start date
+                <input name="startDate" type="date" required min={today} />
+              </label>
+              <label className="field">
+                End date
+                <input name="endDate" type="date" required min={today} />
+              </label>
+              <label className="field field-full">
+                Reason
+                <textarea
+                  name="reason"
+                  required
+                  minLength={3}
+                  maxLength={1000}
+                  placeholder="Share any helpful context for your manager…"
+                  rows={4}
+                />
+              </label>
+              <div className="form-foot field-full">
+                <span>Submitted by {profile?.displayName || user.displayName || user.email}</span>
+                <Button type="submit"><FilePlus2 size={16} /> Submit request</Button>
+              </div>
+            </form>
+          </section>
+          <section className="panel leave-history-panel">
+            <PanelHeading title="Your requests" subtitle="Follow the status of your time off." />
+            <LeaveTable requests={requests} showEmployee={false} />
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LeaveTable({
+  requests,
+  showEmployee,
+}: {
+  requests: LeaveRequest[];
+  showEmployee: boolean;
+}) {
+  if (!requests.length) {
+    return (
+      <EmptyState
+        icon={<CalendarDays size={20} />}
+        title="No leave requests yet"
+        text="Your requests will appear here."
+      />
+    );
+  }
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            {showEmployee && <th>EMPLOYEE</th>}
+            <th>LEAVE TYPE</th>
+            <th>DATES</th>
+            <th>DAYS</th>
+            <th>SUBMITTED</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {requests.map((request) => (
+            <tr key={request.id}>
+              {showEmployee && (
+                <td>
+                  <div className="person-cell">
+                    <Initials name={request.employeeName} />
+                    <span><strong>{request.employeeName}</strong><small>{request.employeeEmail}</small></span>
+                  </div>
+                </td>
+              )}
+              <td><span className="leave-type">{request.type}</span></td>
+              <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
+              <td>{dayCount(request.startDate, request.endDate)}</td>
+              <td>{formatTimestamp(request.createdAt)}</td>
+              <td><StatusPill status={request.status} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AttendancePage({
+  isAdmin,
+  user,
+  employees,
+  records,
+  onSubmit,
+}: {
+  isAdmin: boolean;
+  user: User;
+  employees: EmployeeProfile[];
+  records: AttendanceRecord[];
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const filteredRecords = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return records.filter((record) => {
+      const matchesSearch =
+        !term ||
+        record.employeeName.toLowerCase().includes(term) ||
+        record.date.includes(term) ||
+        record.status.includes(term);
+      return matchesSearch;
+    });
+  }, [records, search]);
+
+  return (
+    <div className="content-stack">
+      <section className="panel attendance-banner">
+        <div className="attendance-banner-icon"><ShieldCheck size={21} /></div>
+        <div>
+          <strong>{isAdmin ? "Admin-maintained attendance" : "Attendance is recorded by your administrator"}</strong>
+          <p>
+            {isAdmin
+              ? "Employees can view their records, but only an administrator can create or change entries."
+              : "Attendance entries are read-only for employees. Contact the administrator if a record needs correction."}
+          </p>
+        </div>
+        <span className="attendance-admin-badge"><ShieldCheck size={14} /> ADMIN ONLY</span>
+      </section>
+      {isAdmin && (
+        <section className="panel">
+          <PanelHeading title="Record attendance" subtitle="Add or correct a day's attendance for an approved employee." />
+          {employees.length ? (
+            <form className="attendance-form" onSubmit={onSubmit}>
+              <label className="field">
+                Employee
+                <select name="employeeId" required defaultValue="">
+                  <option value="" disabled>Select an employee</option>
+                  {employees.map((employee) => (
+                    <option value={employee.uid} key={employee.uid}>
+                      {employee.displayName} · {employee.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                Date
+                <input name="date" type="date" required defaultValue={today} max={today} />
+              </label>
+              <label className="field">
+                Status
+                <select name="status" required defaultValue="">
+                  <option value="" disabled>Select status</option>
+                  <option value="present">Present</option>
+                  <option value="late">Late</option>
+                  <option value="absent">Absent</option>
+                  <option value="leave">On leave</option>
+                </select>
+              </label>
+              <label className="field">
+                Note <span className="optional-label">Optional</span>
+                <input name="note" maxLength={240} placeholder="Add a note…" />
+              </label>
+              <Button type="submit"><Check size={16} /> Save attendance</Button>
+            </form>
+          ) : (
+            <EmptyState icon={<Users size={20} />} title="No approved employees yet" text="Approve employee accounts before recording attendance." />
+          )}
+        </section>
+      )}
+      <section className="panel">
+        <div className="panel-heading panel-heading-search">
+          <div>
+            <h2>{isAdmin ? "Attendance records" : "Your attendance"}</h2>
+            <p>{isAdmin ? "Recent records for your team." : `Attendance history for ${user.displayName || "your account"}.`}</p>
+          </div>
+          {isAdmin && (
+            <label className="search-field">
+              <Search size={16} />
+              <input
+                type="search"
+                placeholder="Search records"
+                aria-label="Search attendance records"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+          )}
+        </div>
+        {filteredRecords.length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {isAdmin && <th>EMPLOYEE</th>}
+                  <th>DATE</th>
+                  <th>STATUS</th>
+                  <th>NOTE</th>
+                  {isAdmin && <th>RECORDED BY</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredRecords.map((record) => (
+                  <tr key={record.id}>
+                    {isAdmin && (
+                      <td>
+                        <div className="person-cell">
+                          <Initials name={record.employeeName} />
+                          <span><strong>{record.employeeName}</strong></span>
+                        </div>
+                      </td>
+                    )}
+                    <td>{formatDate(record.date)}</td>
+                    <td><StatusPill status={record.status} /></td>
+                    <td className="reason-cell">{record.note || "—"}</td>
+                    {isAdmin && <td>{record.recordedBy}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            icon={<CalendarCheck2 size={20} />}
+            title={isAdmin ? "No attendance records" : "Nothing recorded yet"}
+            text={isAdmin ? "Add a record above to get started." : "Your administrator records attendance for the team."}
+          />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function TeamPage({
+  employees,
+  onApprove,
+}: {
+  employees: EmployeeProfile[];
+  onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
+}) {
+  const [filter, setFilter] = useState<"all" | ApprovalStatus>("all");
+  const visibleEmployees = employees.filter(
+    (employee) => filter === "all" || employee.status === filter,
+  );
+
+  return (
+    <div className="content-stack">
+      <div className="stat-grid team-stats">
+        <StatCard icon={<Users size={18} />} label="All accounts" value={employees.length} hint="Registered" tone="blue" />
+        <StatCard icon={<CheckCircle2 size={18} />} label="Approved" value={employees.filter((employee) => employee.status === "approved").length} hint="Active access" tone="green" />
+        <StatCard icon={<Clock3 size={18} />} label="Pending" value={employees.filter((employee) => employee.status === "pending").length} hint="Needs your review" tone="amber" />
+        <StatCard icon={<XCircle size={18} />} label="Declined" value={employees.filter((employee) => employee.status === "rejected").length} hint="Not approved" tone="violet" />
+      </div>
+      <section className="panel">
+        <div className="panel-heading panel-heading-search">
+          <div>
+            <h2>Employee accounts</h2>
+            <p>Approve new people before they can access employee features.</p>
+          </div>
+          <label className="filter-select">
+            <span className="sr-only">Filter employees by approval status</span>
+            <select value={filter} onChange={(event) => setFilter(event.target.value as "all" | ApprovalStatus)}>
+              <option value="all">All accounts</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Declined</option>
+            </select>
+          </label>
+        </div>
+        {visibleEmployees.length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>EMPLOYEE</th><th>REGISTERED</th><th>ACCESS</th><th className="align-right">ACTIONS</th></tr>
+              </thead>
+              <tbody>
+                {visibleEmployees.map((employee) => (
+                  <tr key={employee.uid}>
+                    <td>
+                      <div className="person-cell">
+                        <Initials name={employee.displayName} />
+                        <span><strong>{employee.displayName}</strong><small>{employee.email}</small></span>
+                      </div>
+                    </td>
+                    <td>{formatTimestamp(employee.createdAt)}</td>
+                    <td><StatusPill status={employee.status} /></td>
+                    <td className="align-right">
+                      {employee.status === "pending" ? (
+                        <div className="decision-actions">
+                          <Button variant="secondary" onClick={() => onApprove(employee, "rejected")}>Decline</Button>
+                          <Button onClick={() => onApprove(employee, "approved")}><Check size={15} /> Approve</Button>
+                        </div>
+                      ) : employee.status === "rejected" ? (
+                        <Button variant="secondary" onClick={() => onApprove(employee, "approved")}>Approve access</Button>
+                      ) : (
+                        <span className="muted-cell">Access granted</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState icon={<Users size={20} />} title="No employee accounts" text="New Google sign-ins will appear here for approval." />
+        )}
+      </section>
+      <section className="admin-note">
+        <ShieldCheck size={18} />
+        <p><strong>Approval is restricted.</strong> Only the ADN administrator account can review and change employee access.</p>
+      </section>
+    </div>
+  );
+}
+
+export default App;

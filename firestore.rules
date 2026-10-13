@@ -1,0 +1,130 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == 'adn.semicon@gmail.com';
+    }
+
+    function isApprovedEmployee() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
+    }
+
+    match /users/{userId} {
+      allow get: if isAdmin() || (signedIn() && request.auth.uid == userId);
+      allow list: if isAdmin();
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.auth.token.email_verified == true
+        && request.resource.data.keys().hasAll([
+          'uid', 'email', 'displayName', 'status', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'status', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'updatedAt'
+        ])
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    match /leaveRequests/{requestId} {
+      allow get, list: if isAdmin()
+        || (isApprovedEmployee() && resource.data.employeeId == request.auth.uid);
+
+      allow create: if isApprovedEmployee()
+        && request.resource.data.keys().hasAll([
+          'employeeId', 'employeeEmail', 'employeeName', 'type',
+          'startDate', 'endDate', 'reason', 'status', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'employeeId', 'employeeEmail', 'employeeName', 'type',
+          'startDate', 'endDate', 'reason', 'status', 'createdAt'
+        ])
+        && request.resource.data.employeeId == request.auth.uid
+        && request.resource.data.employeeEmail == request.auth.token.email
+        && request.resource.data.employeeName is string
+        && request.resource.data.type in [
+          'Annual leave', 'Sick leave', 'Personal leave', 'Unpaid leave'
+        ]
+        && request.resource.data.startDate is string
+        && request.resource.data.startDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.endDate is string
+        && request.resource.data.endDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.endDate >= request.resource.data.startDate
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() >= 3
+        && request.resource.data.reason.size() <= 1000
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if isAdmin()
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'reviewedAt', 'reviewedBy'
+        ])
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.reviewedAt == request.time
+        && request.resource.data.reviewedBy == request.auth.token.email;
+
+      allow delete: if false;
+    }
+
+    match /attendance/{recordId} {
+      allow get, list: if isAdmin()
+        || (isApprovedEmployee() && resource.data.employeeId == request.auth.uid);
+
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasAll([
+          'employeeId', 'employeeName', 'date', 'status',
+          'note', 'recordedAt', 'recordedBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'employeeId', 'employeeName', 'date', 'status',
+          'note', 'recordedAt', 'recordedBy'
+        ])
+        && request.resource.data.employeeId is string
+        && request.resource.data.employeeName is string
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && request.resource.data.status in ['present', 'late', 'absent', 'leave']
+        && request.resource.data.note is string
+        && request.resource.data.note.size() <= 240
+        && request.resource.data.recordedAt == request.time
+        && request.resource.data.recordedBy == request.auth.token.email
+        && recordId == request.resource.data.employeeId + '_' + request.resource.data.date
+        && exists(/databases/$(database)/documents/users/$(request.resource.data.employeeId))
+        && get(/databases/$(database)/documents/users/$(request.resource.data.employeeId)).data.status == 'approved'
+        && (
+          !exists(/databases/$(database)/documents/attendance/$(recordId))
+          || (
+            request.resource.data.employeeId == resource.data.employeeId
+            && request.resource.data.date == resource.data.date
+          )
+        );
+
+      allow delete: if false;
+    }
+  }
+}
