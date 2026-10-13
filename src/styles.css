@@ -1449,10 +1449,14 @@ a {
   color: #b25551;
 }
 
-.status-late,
 .status-leave {
   background: #f0edfa;
   color: #7257aa;
+}
+
+.status-late {
+  background: #fff5e2;
+  color: #ae7419;
 }
 
 .content-stack {
@@ -1526,9 +1530,29 @@ tbody tr:last-child td {
 }
 
 .leave-type {
-  color: #58667a;
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
   font-size: 13.5px;
+  font-weight: 600;
   white-space: nowrap;
+}
+
+.leave-type-annual,
+.leave-balance-annual {
+  background: #e6f5ff;
+  color: #2678a4;
+}
+
+.leave-type-sick,
+.leave-balance-sick {
+  background: #f0edfa;
+  color: #7257aa;
+}
+
+.leave-type-other {
+  background: #f1f3f6;
+  color: #58667a;
 }
 
 .reason-cell {
@@ -1559,6 +1583,53 @@ tbody tr:last-child td {
   grid-template-columns: minmax(290px, 0.78fr) minmax(0, 1.22fr);
   align-items: start;
   gap: 16px;
+}
+
+.leave-balance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.leave-balance-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #e9edf1;
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.leave-balance-card.leave-balance-annual {
+  border-left-color: #58a9d4;
+}
+
+.leave-balance-card.leave-balance-sick {
+  border-left-color: #7257aa;
+}
+
+.leave-balance-card strong {
+  font-size: 13.5px;
+}
+
+.leave-balance-card span {
+  color: #344154;
+  font-size: 16.2px;
+  font-weight: 700;
+}
+
+.leave-balance-card.leave-balance-annual span {
+  color: #2678a4;
+}
+
+.leave-balance-card.leave-balance-sick span {
+  color: #7257aa;
+}
+
+.leave-balance-card small {
+  color: #778294;
+  font-size: 12.15px;
 }
 
 .leave-form-panel {
@@ -1800,10 +1871,29 @@ tbody tr:last-child td {
   color: #428366;
 }
 
-.attendance-event-late,
 .attendance-event-leave {
   background: #f0edfa;
   color: #7257aa;
+}
+
+.attendance-event-late {
+  background: #fff5e2;
+  color: #ae7419;
+}
+
+.attendance-event-annual-leave {
+  background: #e6f5ff;
+  color: #2678a4;
+}
+
+.attendance-event-sick-leave {
+  background: #f0edfa;
+  color: #7257aa;
+}
+
+.attendance-event-other-leave {
+  background: #f1f3f6;
+  color: #58667a;
 }
 
 .attendance-event-absent {
@@ -1841,8 +1931,19 @@ tbody tr:last-child td {
   background: #428366;
 }
 
-.attendance-legend-late,
 .attendance-legend-leave {
+  background: #7257aa;
+}
+
+.attendance-legend-late {
+  background: #ae7419;
+}
+
+.attendance-legend-annual-leave {
+  background: #2678a4;
+}
+
+.attendance-legend-sick-leave {
   background: #7257aa;
 }
 
@@ -1880,6 +1981,45 @@ tbody tr:last-child td {
   min-height: 34px;
   padding: 0 25px 0 9px;
   font-size: 12.15px;
+}
+
+.team-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-table {
+  min-width: 1000px;
+}
+
+.leave-balance-editor {
+  display: flex;
+  min-width: 315px;
+  align-items: end;
+  gap: 7px;
+}
+
+.leave-balance-editor label {
+  display: grid;
+  gap: 3px;
+  color: #778294;
+  font-size: 10.8px;
+}
+
+.leave-balance-editor input {
+  width: 64px;
+  min-height: 32px;
+  padding: 0 6px;
+  border: 1px solid #e2e7ed;
+  border-radius: 6px;
+  color: #465367;
+  font: inherit;
+}
+
+.leave-balance-editor .button {
+  min-height: 32px;
+  padding: 0 9px;
 }
 
 .muted-cell {
@@ -2334,6 +2474,15 @@ tbody tr:last-child td {
   .filter-select,
   .filter-select select {
     width: 100%;
+  }
+
+  .team-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .team-filters .filter-select {
+    flex: 1;
   }
 
   .attendance-banner {

@@ -3,12 +3,19 @@ import type { Timestamp } from "firebase/firestore";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type LeaveStatus = "pending" | "approved" | "rejected";
 export type AttendanceStatus = "present" | "late" | "absent" | "leave";
+export type LeaveType = "Annual leave" | "Sick leave";
+
+export interface LeaveBalance {
+  annualDays: number;
+  sickDays: number;
+}
 
 export interface EmployeeProfile {
   uid: string;
   email: string;
   displayName: string;
   status: ApprovalStatus;
+  leaveBalances?: Record<string, LeaveBalance>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

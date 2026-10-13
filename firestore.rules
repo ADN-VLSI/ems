@@ -40,11 +40,21 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
 
       allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'updatedAt'
-        ])
-        && request.resource.data.status in ['approved', 'rejected']
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'updatedAt'
+            ])
+            && request.resource.data.status in ['approved', 'rejected']
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'leaveBalances', 'updatedAt'
+            ])
+            && request.resource.data.leaveBalances is map
+          )
+        );
 
       allow delete: if false;
     }
@@ -65,9 +75,7 @@ service cloud.firestore {
         && request.resource.data.employeeId == request.auth.uid
         && request.resource.data.employeeEmail == request.auth.token.email
         && request.resource.data.employeeName is string
-        && request.resource.data.type in [
-          'Annual leave', 'Sick leave', 'Personal leave', 'Unpaid leave'
-        ]
+        && request.resource.data.type in ['Annual leave', 'Sick leave']
         && request.resource.data.startDate is string
         && request.resource.data.startDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
         && request.resource.data.endDate is string

@@ -52,6 +52,7 @@ import type {
   EmployeeProfile,
   LeaveRequest,
   LeaveStatus,
+  LeaveType,
   PortalSection,
 } from "./types";
 
@@ -98,12 +99,57 @@ function formatTimestamp(value?: { toDate: () => Date }): string {
 }
 
 function dayCount(start: string, end: string): number {
-  const from = new Date(`${start}T00:00:00`);
-  const to = new Date(`${end}T00:00:00`);
+  const from = new Date(`${start}T00:00:00Z`);
+  const to = new Date(`${end}T00:00:00Z`);
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
     return 0;
   }
   return Math.floor((to.getTime() - from.getTime()) / 86_400_000) + 1;
+}
+
+function fiscalYearStartForDate(value: Date | string): number {
+  const year =
+    typeof value === "string" ? Number(value.slice(0, 4)) : value.getFullYear();
+  const month =
+    typeof value === "string" ? Number(value.slice(5, 7)) - 1 : value.getMonth();
+  return month >= 6 ? year : year - 1;
+}
+
+function formatFiscalYear(startYear: number): string {
+  return `FY ${startYear}–${startYear + 1}`;
+}
+
+function leaveTypeTone(type: string): string {
+  if (type === "Annual leave") return "annual";
+  if (type === "Sick leave") return "sick";
+  return "other";
+}
+
+function daysInFiscalYear(request: LeaveRequest, startYear: number): number {
+  const yearStart = `${startYear}-07-01`;
+  const yearEnd = `${startYear + 1}-06-30`;
+  const overlapStart = request.startDate > yearStart ? request.startDate : yearStart;
+  const overlapEnd = request.endDate < yearEnd ? request.endDate : yearEnd;
+  return overlapEnd < overlapStart ? 0 : dayCount(overlapStart, overlapEnd);
+}
+
+function availableFiscalYears(
+  employees: EmployeeProfile[],
+  requests: LeaveRequest[],
+  currentYear: number,
+): number[] {
+  const years = new Set([currentYear - 1, currentYear, currentYear + 1]);
+  employees.forEach((employee) => {
+    Object.keys(employee.leaveBalances ?? {}).forEach((year) => {
+      const startYear = Number(year);
+      if (Number.isInteger(startYear)) years.add(startYear);
+    });
+  });
+  requests.forEach((request) => {
+    years.add(fiscalYearStartForDate(request.startDate));
+    years.add(fiscalYearStartForDate(request.endDate));
+  });
+  return [...years].sort((a, b) => b - a);
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -114,7 +160,7 @@ function StatusPill({ status }: { status: string }) {
     present: "Present",
     late: "Late",
     absent: "Absent",
-    leave: "On leave",
+    leave: "Leave",
   };
   return (
     <span className={`status-pill status-${status}`}>
@@ -470,6 +516,29 @@ function App() {
     }
   }
 
+  async function updateLeaveBalances(
+    employee: EmployeeProfile,
+    fiscalYearStart: number,
+    annualDays: number,
+    sickDays: number,
+  ) {
+    try {
+      await updateDoc(doc(db, "users", employee.uid), {
+        leaveBalances: {
+          ...employee.leaveBalances,
+          [String(fiscalYearStart)]: { annualDays, sickDays },
+        },
+        updatedAt: serverTimestamp(),
+      });
+      setNotice({
+        kind: "success",
+        message: `Leave balances saved for ${employee.displayName} (${formatFiscalYear(fiscalYearStart)}).`,
+      });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
   async function reviewLeave(
     request: LeaveRequest,
     status: Exclude<LeaveStatus, "pending">,
@@ -498,12 +567,25 @@ function App() {
     const startDate = String(form.get("startDate") ?? "");
     const endDate = String(form.get("endDate") ?? "");
     const reason = String(form.get("reason") ?? "").trim();
-    if (!type || !startDate || !endDate || !reason) {
+    if (
+      (type !== "Annual leave" && type !== "Sick leave") ||
+      !startDate ||
+      !endDate ||
+      !reason
+    ) {
       setNotice({ kind: "error", message: "Complete every field before submitting." });
       return;
     }
     if (endDate < startDate) {
       setNotice({ kind: "error", message: "The end date must be on or after the start date." });
+      return;
+    }
+    if (type === "Annual leave" && startDate < today) {
+      setNotice({ kind: "error", message: "Annual leave cannot start in the past." });
+      return;
+    }
+    if (type === "Sick leave" && (startDate > today || endDate > today)) {
+      setNotice({ kind: "error", message: "Sick leave can only be requested for today or a past absence." });
       return;
     }
 
@@ -786,6 +868,7 @@ function App() {
               isAdmin={Boolean(isAdmin)}
               user={user}
               profile={profile}
+              employees={approvedEmployees}
               requests={leaveRequests}
               onSubmit={submitLeave}
               onReview={reviewLeave}
@@ -797,11 +880,16 @@ function App() {
               user={user}
               employees={approvedEmployees}
               records={attendance}
+              leaveRequests={leaveRequests}
               onSubmit={recordAttendance}
             />
           )}
           {activeSection === "team" && isAdmin && (
-            <TeamPage employees={employees} onApprove={changeApproval} />
+            <TeamPage
+              employees={employees}
+              onApprove={changeApproval}
+              onSaveLeaveBalances={updateLeaveBalances}
+            />
           )}
         </div>
         <footer className="page-footer">
@@ -1032,7 +1120,7 @@ function Overview({
             />
             <StatCard
               icon={<CheckCircle2 size={18} />}
-              label="Approved leave"
+              label="Approved requests"
               value={requests.filter((request) => request.status === "approved").length}
               hint="Requests approved"
               tone="green"
@@ -1174,6 +1262,7 @@ function LeavesPage({
   isAdmin,
   user,
   profile,
+  employees,
   requests,
   onSubmit,
   onReview,
@@ -1181,11 +1270,31 @@ function LeavesPage({
   isAdmin: boolean;
   user: User;
   profile: EmployeeProfile | null;
+  employees: EmployeeProfile[];
   requests: LeaveRequest[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
 }) {
   const waiting = requests.filter((request) => request.status === "pending").length;
+  const currentFiscalYear = fiscalYearStartForDate(new Date());
+  const [fiscalYearStart, setFiscalYearStart] = useState(currentFiscalYear);
+  const fiscalYears = useMemo(
+    () => availableFiscalYears(employees, requests, currentFiscalYear),
+    [currentFiscalYear, employees, requests],
+  );
+  const approvedRequests = requests.filter((request) => request.status === "approved");
+  const approvedDays = (type: LeaveType, employeeId?: string) =>
+    approvedRequests.reduce(
+      (total, request) =>
+        request.type === type &&
+        (!employeeId || request.employeeId === employeeId)
+          ? total + daysInFiscalYear(request, fiscalYearStart)
+          : total,
+      0,
+    );
+  const selectedBalance = profile?.leaveBalances?.[String(fiscalYearStart)];
+  const [leaveType, setLeaveType] = useState<LeaveType | "">("");
+  const [startDate, setStartDate] = useState("");
   return (
     <div className="content-stack">
       {isAdmin ? (
@@ -1217,7 +1326,7 @@ function LeavesPage({
                             <span><strong>{request.employeeName}</strong><small>{request.employeeEmail}</small></span>
                           </div>
                         </td>
-                        <td><span className="leave-type">{request.type}</span></td>
+                        <td><span className={`leave-type leave-type-${leaveTypeTone(request.type)}`}>{request.type}</span></td>
                         <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
                         <td>{dayCount(request.startDate, request.endDate)}</td>
                         <td className="reason-cell">{request.reason}</td>
@@ -1240,55 +1349,161 @@ function LeavesPage({
             <PanelHeading title="All requests" subtitle="A record of leave decisions across the team." />
             <LeaveTable requests={requests} showEmployee />
           </section>
-        </>
-      ) : (
-        <div className="leave-layout">
-          <section className="panel leave-form-panel" id="leave-form">
-            <PanelHeading
-              title="Request time off"
-              subtitle="Your request will be sent to the ADN administrator."
-            />
-            <form className="form-grid" onSubmit={onSubmit}>
-              <label className="field field-full">
-                Leave type
-                <select name="type" required defaultValue="">
-                  <option value="" disabled>Select a leave type</option>
-                  <option>Annual leave</option>
-                  <option>Sick leave</option>
-                  <option>Personal leave</option>
-                  <option>Unpaid leave</option>
+          <section className="panel">
+            <div className="panel-heading panel-heading-search">
+              <div>
+                <h2>Leave days by fiscal year</h2>
+                <p>Approved days are counted from July 1 through June 30.</p>
+              </div>
+              <label className="filter-select">
+                <span className="sr-only">Select fiscal year</span>
+                <select
+                  aria-label="Select fiscal year for leave totals"
+                  value={fiscalYearStart}
+                  onChange={(event) => setFiscalYearStart(Number(event.target.value))}
+                >
+                  {fiscalYears.map((year) => (
+                    <option value={year} key={year}>{formatFiscalYear(year)}</option>
+                  ))}
                 </select>
               </label>
-              <label className="field">
-                Start date
-                <input name="startDate" type="date" required min={today} />
-              </label>
-              <label className="field">
-                End date
-                <input name="endDate" type="date" required min={today} />
-              </label>
-              <label className="field field-full">
-                Reason
-                <textarea
-                  name="reason"
-                  required
-                  minLength={3}
-                  maxLength={1000}
-                  placeholder="Share any helpful context for your manager…"
-                  rows={4}
-                />
-              </label>
-              <div className="form-foot field-full">
-                <span>Submitted by {profile?.displayName || user.displayName || user.email}</span>
-                <Button type="submit"><FilePlus2 size={16} /> Submit request</Button>
+            </div>
+            {employees.length ? (
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>EMPLOYEE</th><th>ANNUAL LEAVE DAYS</th><th>SICK LEAVE DAYS</th></tr>
+                  </thead>
+                  <tbody>
+                    {employees.map((employee) => (
+                      <tr key={employee.uid}>
+                        <td>
+                          <div className="person-cell">
+                            <Initials name={employee.displayName} />
+                            <span><strong>{employee.displayName}</strong></span>
+                          </div>
+                        </td>
+                        <td>{approvedDays("Annual leave", employee.uid)}</td>
+                        <td>{approvedDays("Sick leave", employee.uid)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </form>
+            ) : (
+              <EmptyState icon={<Users size={20} />} title="No approved employees" text="Leave totals will appear here." />
+            )}
           </section>
-          <section className="panel leave-history-panel">
-            <PanelHeading title="Your requests" subtitle="Follow the status of your time off." />
-            <LeaveTable requests={requests} showEmployee={false} />
+        </>
+      ) : (
+        <>
+          <section className="panel">
+            <div className="panel-heading panel-heading-search">
+              <div>
+                <h2>Leave balances · {formatFiscalYear(fiscalYearStart)}</h2>
+                <p>Remaining balances are maintained by your administrator. Approved usage is shown separately.</p>
+              </div>
+              <label className="filter-select">
+                <span className="sr-only">Select fiscal year</span>
+                <select
+                  aria-label="Select fiscal year for leave balance"
+                  value={fiscalYearStart}
+                  onChange={(event) => setFiscalYearStart(Number(event.target.value))}
+                >
+                  {fiscalYears.map((year) => (
+                    <option value={year} key={year}>{formatFiscalYear(year)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="leave-balance-grid">
+              {([
+                { type: "Annual leave" as const, days: selectedBalance?.annualDays },
+                { type: "Sick leave" as const, days: selectedBalance?.sickDays },
+              ]).map(({ type, days }) => (
+                <div
+                  className={`leave-balance-card leave-balance-${type === "Annual leave" ? "annual" : "sick"}`}
+                  key={type}
+                >
+                  <strong>{type}</strong>
+                  <span>{days === undefined ? "Not set" : `${days} days available`}</span>
+                  <small>{approvedDays(type)} approved this fiscal year</small>
+                </div>
+              ))}
+            </div>
           </section>
-        </div>
+          <div className="leave-layout">
+            <section className="panel leave-form-panel" id="leave-form">
+              <PanelHeading
+                title="Request time off"
+                subtitle="Annual leave may be requested in advance. Request sick leave on the day of absence or later."
+              />
+              <form className="form-grid" onSubmit={onSubmit}>
+                <label className="field field-full">
+                  Leave type
+                  <select
+                    name="type"
+                    required
+                    value={leaveType}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setLeaveType(
+                        value === "Annual leave" || value === "Sick leave"
+                          ? value
+                          : "",
+                      );
+                    }}
+                  >
+                    <option value="" disabled>Select a leave type</option>
+                    <option value="Annual leave">Annual leave</option>
+                    <option value="Sick leave">Sick leave</option>
+                  </select>
+                </label>
+                <label className="field">
+                  Start date
+                  <input
+                    name="startDate"
+                    type="date"
+                    required
+                    min={leaveType === "Sick leave" ? undefined : today}
+                    max={leaveType === "Sick leave" ? today : undefined}
+                    value={startDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  End date
+                  <input
+                    name="endDate"
+                    type="date"
+                    required
+                    min={startDate || (leaveType === "Sick leave" ? undefined : today)}
+                    max={leaveType === "Sick leave" ? today : undefined}
+                  />
+                </label>
+                <label className="field field-full">
+                  Reason
+                  <textarea
+                    name="reason"
+                    required
+                    minLength={3}
+                    maxLength={1000}
+                    placeholder="Share any helpful context for your manager…"
+                    rows={4}
+                  />
+                </label>
+                <div className="form-foot field-full">
+                  <span>Submitted by {profile?.displayName || user.displayName || user.email}</span>
+                  <Button type="submit"><FilePlus2 size={16} /> Submit request</Button>
+                </div>
+              </form>
+            </section>
+            <section className="panel leave-history-panel">
+              <PanelHeading title="Your requests" subtitle="Follow the status of your time off." />
+              <LeaveTable requests={requests} showEmployee={false} />
+            </section>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1334,7 +1549,7 @@ function LeaveTable({
                   </div>
                 </td>
               )}
-              <td><span className="leave-type">{request.type}</span></td>
+              <td><span className={`leave-type leave-type-${leaveTypeTone(request.type)}`}>{request.type}</span></td>
               <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
               <td>{dayCount(request.startDate, request.endDate)}</td>
               <td>{formatTimestamp(request.createdAt)}</td>
@@ -1352,12 +1567,14 @@ function AttendancePage({
   user,
   employees,
   records,
+  leaveRequests,
   onSubmit,
 }: {
   isAdmin: boolean;
   user: User;
   employees: EmployeeProfile[];
   records: AttendanceRecord[];
+  leaveRequests: LeaveRequest[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -1382,6 +1599,17 @@ function AttendancePage({
         ? records.filter((record) => record.employeeId === calendarEmployeeId)
         : records,
     [calendarEmployeeId, isAdmin, records],
+  );
+  const calendarLeaveRequests = useMemo(
+    () =>
+      leaveRequests.filter(
+        (request) =>
+          request.status === "approved" &&
+          (!isAdmin ||
+            !calendarEmployeeId ||
+            request.employeeId === calendarEmployeeId),
+      ),
+    [calendarEmployeeId, isAdmin, leaveRequests],
   );
   const recordsByDate = useMemo(
     () =>
@@ -1411,7 +1639,7 @@ function AttendancePage({
     present: "Present",
     late: "Late",
     absent: "Absent",
-    leave: "On leave",
+    leave: "Leave",
   };
 
   return (
@@ -1455,7 +1683,7 @@ function AttendancePage({
                   <option value="present">Present</option>
                   <option value="late">Late</option>
                   <option value="absent">Absent</option>
-                  <option value="leave">On leave</option>
+                  <option value="leave">Leave</option>
                 </select>
               </label>
               <label className="field">
@@ -1546,27 +1774,57 @@ function AttendancePage({
                       if (!day) return <td aria-hidden="true" key={index} />;
                       const date = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                       const dayRecords = recordsByDate[date] ?? [];
+                      const dayLeaves = calendarLeaveRequests.filter(
+                        (request) =>
+                          request.startDate <= date && request.endDate >= date,
+                      );
+                      const visibleDayRecords = dayRecords.filter(
+                        (record) =>
+                          record.status !== "leave" ||
+                          !dayLeaves.some(
+                            (request) =>
+                              request.employeeId === record.employeeId,
+                          ),
+                      );
+                      const calendarEvents = [
+                        ...dayLeaves.map((request) => ({
+                          id: `leave-${request.id}`,
+                          className: `attendance-event-${leaveTypeTone(request.type)}-leave`,
+                          label:
+                            isAdmin && !calendarEmployeeId
+                              ? `${request.employeeName.split(" ")[0]} · ${request.type}`
+                              : request.type,
+                          title: `${request.employeeName}: ${request.type} (approved)${request.reason ? ` — ${request.reason}` : ""}`,
+                        })),
+                        ...visibleDayRecords.map((record) => ({
+                          id: record.id,
+                          className: `attendance-event-${record.status}`,
+                          label:
+                            isAdmin && !calendarEmployeeId
+                              ? `${record.employeeName.split(" ")[0]} · ${attendanceLabels[record.status]}`
+                              : attendanceLabels[record.status],
+                          title: `${record.employeeName}: ${attendanceLabels[record.status]}${record.note ? ` — ${record.note}` : ""}`,
+                        })),
+                      ];
 
                       return (
-                        <td key={date} aria-label={`${formatDate(date)}${dayRecords.length ? `, ${dayRecords.length} attendance record${dayRecords.length === 1 ? "" : "s"}` : ""}`}>
+                        <td key={date} aria-label={`${formatDate(date)}${calendarEvents.length ? `, ${calendarEvents.length} calendar record${calendarEvents.length === 1 ? "" : "s"}` : ""}`}>
                           <span className={`attendance-calendar-day${date === today ? " attendance-calendar-today" : ""}`}>
                             {day}
                           </span>
                           <div className="attendance-calendar-events">
-                            {dayRecords.slice(0, 3).map((record) => (
+                            {calendarEvents.slice(0, 3).map((event) => (
                               <span
-                                className={`attendance-event attendance-event-${record.status}`}
-                                key={record.id}
-                                title={`${record.employeeName}: ${attendanceLabels[record.status]}${record.note ? ` — ${record.note}` : ""}`}
+                                className={`attendance-event ${event.className}`}
+                                key={event.id}
+                                title={event.title}
                               >
-                                {isAdmin && !calendarEmployeeId
-                                  ? `${record.employeeName.split(" ")[0]} · ${attendanceLabels[record.status]}`
-                                  : attendanceLabels[record.status]}
+                                {event.label}
                               </span>
                             ))}
-                            {dayRecords.length > 3 && (
+                            {calendarEvents.length > 3 && (
                               <span className="attendance-calendar-more">
-                                +{dayRecords.length - 3} more
+                                +{calendarEvents.length - 3} more
                               </span>
                             )}
                           </div>
@@ -1586,6 +1844,14 @@ function AttendancePage({
               {attendanceLabels[status]}
             </span>
           ))}
+          <span>
+            <i className="attendance-legend-dot attendance-legend-annual-leave" />
+            Annual leave
+          </span>
+          <span>
+            <i className="attendance-legend-dot attendance-legend-sick-leave" />
+            Sick leave
+          </span>
         </div>
       </section>
       <section className="panel">
@@ -1654,11 +1920,24 @@ function AttendancePage({
 function TeamPage({
   employees,
   onApprove,
+  onSaveLeaveBalances,
 }: {
   employees: EmployeeProfile[];
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
+  onSaveLeaveBalances: (
+    employee: EmployeeProfile,
+    fiscalYearStart: number,
+    annualDays: number,
+    sickDays: number,
+  ) => Promise<void>;
 }) {
   const [filter, setFilter] = useState<"all" | ApprovalStatus>("all");
+  const currentFiscalYear = fiscalYearStartForDate(new Date());
+  const [fiscalYearStart, setFiscalYearStart] = useState(currentFiscalYear);
+  const fiscalYears = useMemo(
+    () => availableFiscalYears(employees, [], currentFiscalYear),
+    [currentFiscalYear, employees],
+  );
   const visibleEmployees = employees.filter(
     (employee) => filter === "all" || employee.status === filter,
   );
@@ -1675,23 +1954,37 @@ function TeamPage({
         <div className="panel-heading panel-heading-search">
           <div>
             <h2>Employee accounts</h2>
-            <p>Approve new people before they can access employee features.</p>
+            <p>Manage employee access and fiscal-year leave balances.</p>
           </div>
-          <label className="filter-select">
-            <span className="sr-only">Filter employees by approval status</span>
-            <select value={filter} onChange={(event) => setFilter(event.target.value as "all" | ApprovalStatus)}>
-              <option value="all">All accounts</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Declined</option>
-            </select>
-          </label>
+          <div className="team-filters">
+            <label className="filter-select">
+              <span className="sr-only">Select fiscal year for leave balances</span>
+              <select
+                aria-label="Select fiscal year for leave balances"
+                value={fiscalYearStart}
+                onChange={(event) => setFiscalYearStart(Number(event.target.value))}
+              >
+                {fiscalYears.map((year) => (
+                  <option value={year} key={year}>{formatFiscalYear(year)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="filter-select">
+              <span className="sr-only">Filter employees by approval status</span>
+              <select value={filter} onChange={(event) => setFilter(event.target.value as "all" | ApprovalStatus)}>
+                <option value="all">All accounts</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Declined</option>
+              </select>
+            </label>
+          </div>
         </div>
         {visibleEmployees.length ? (
           <div className="table-wrap">
-            <table>
+            <table className="team-table">
               <thead>
-                <tr><th>EMPLOYEE</th><th>REGISTERED</th><th>ACCESS</th><th className="align-right">ACTIONS</th></tr>
+                <tr><th>EMPLOYEE</th><th>REGISTERED</th><th>ACCESS</th><th>LEAVE BALANCES</th><th className="align-right">ACTIONS</th></tr>
               </thead>
               <tbody>
                 {visibleEmployees.map((employee) => (
@@ -1704,6 +1997,14 @@ function TeamPage({
                     </td>
                     <td>{formatTimestamp(employee.createdAt)}</td>
                     <td><StatusPill status={employee.status} /></td>
+                    <td>
+                      <LeaveBalanceEditor
+                        key={`${employee.uid}-${fiscalYearStart}`}
+                        employee={employee}
+                        fiscalYearStart={fiscalYearStart}
+                        onSave={onSaveLeaveBalances}
+                      />
+                    </td>
                     <td className="align-right">
                       {employee.status === "pending" ? (
                         <div className="decision-actions">
@@ -1727,9 +2028,94 @@ function TeamPage({
       </section>
       <section className="admin-note">
         <ShieldCheck size={18} />
-        <p><strong>Approval is restricted.</strong> Only the ADN administrator account can review and change employee access.</p>
+        <p><strong>Admin-only controls.</strong> Only the ADN administrator can change employee access or manually set annual and sick balances for each fiscal year.</p>
       </section>
     </div>
+  );
+}
+
+function LeaveBalanceEditor({
+  employee,
+  fiscalYearStart,
+  onSave,
+}: {
+  employee: EmployeeProfile;
+  fiscalYearStart: number;
+  onSave: (
+    employee: EmployeeProfile,
+    fiscalYearStart: number,
+    annualDays: number,
+    sickDays: number,
+  ) => Promise<void>;
+}) {
+  const currentBalance = employee.leaveBalances?.[String(fiscalYearStart)];
+  const [annualDays, setAnnualDays] = useState(
+    currentBalance?.annualDays.toString() ?? "",
+  );
+  const [sickDays, setSickDays] = useState(currentBalance?.sickDays.toString() ?? "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const balance = employee.leaveBalances?.[String(fiscalYearStart)];
+    setAnnualDays(balance?.annualDays.toString() ?? "");
+    setSickDays(balance?.sickDays.toString() ?? "");
+  }, [employee.leaveBalances, fiscalYearStart]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const annual = Number(annualDays);
+    const sick = Number(sickDays);
+    if (
+      !annualDays ||
+      !sickDays ||
+      !Number.isInteger(annual) ||
+      !Number.isInteger(sick) ||
+      annual < 0 ||
+      sick < 0
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSave(employee, fiscalYearStart, annual, sick);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="leave-balance-editor" onSubmit={handleSubmit}>
+      <label>
+        <span>Annual</span>
+        <input
+          aria-label={`Annual leave days for ${employee.displayName} in ${formatFiscalYear(fiscalYearStart)}`}
+          type="number"
+          min="0"
+          step="1"
+          required
+          value={annualDays}
+          disabled={saving}
+          onChange={(event) => setAnnualDays(event.target.value)}
+        />
+      </label>
+      <label>
+        <span>Sick</span>
+        <input
+          aria-label={`Sick leave days for ${employee.displayName} in ${formatFiscalYear(fiscalYearStart)}`}
+          type="number"
+          min="0"
+          step="1"
+          required
+          value={sickDays}
+          disabled={saving}
+          onChange={(event) => setSickDays(event.target.value)}
+        />
+      </label>
+      <Button type="submit" variant="secondary" disabled={saving}>
+        {saving ? "Saving…" : "Save"}
+      </Button>
+    </form>
   );
 }
 
