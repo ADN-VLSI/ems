@@ -2,10 +2,15 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
+  writeBatch,
 } from "firebase/firestore";
 import {
   onAuthStateChanged,
@@ -30,9 +35,11 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Pencil,
   Plus,
   Search,
   ShieldCheck,
+  Trash2,
   Users,
   X,
   XCircle,
@@ -43,6 +50,7 @@ import {
   listenToAttendance,
   listenToEmployees,
   listenToLeaveRequests,
+  listenToNotices,
   listenToProfile,
 } from "./data";
 import type {
@@ -53,10 +61,17 @@ import type {
   LeaveRequest,
   LeaveStatus,
   LeaveType,
+  NoticePost,
   PortalSection,
 } from "./types";
 
 type Notice = { kind: "success" | "error"; message: string };
+type EmployeeProfileDetails = {
+  displayName: string;
+  jobTitle: string;
+  department: string;
+  phone: string;
+};
 
 const sectionTitles: Record<PortalSection, string> = {
   overview: "Overview",
@@ -360,6 +375,7 @@ function App() {
   const [employees, setEmployees] = useState<EmployeeProfile[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [boardNotices, setBoardNotices] = useState<NoticePost[]>([]);
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
@@ -412,6 +428,7 @@ function App() {
       setEmployees([]);
       setLeaveRequests([]);
       setAttendance([]);
+      setBoardNotices([]);
       return;
     }
 
@@ -429,6 +446,7 @@ function App() {
       setAttendance,
       fail,
     );
+    const stopNotices = listenToNotices(setBoardNotices, fail);
     const stopEmployees = isAdmin
       ? listenToEmployees(setEmployees, fail)
       : () => setEmployees([]);
@@ -436,6 +454,7 @@ function App() {
     return () => {
       stopLeaves();
       stopAttendance();
+      stopNotices();
       stopEmployees();
     };
   }, [user, isAdmin, profile?.status]);
@@ -516,6 +535,134 @@ function App() {
     }
   }
 
+  async function updateEmployeeDetails(
+    employee: EmployeeProfile,
+    details: EmployeeProfileDetails,
+  ) {
+    const values = {
+      displayName: details.displayName.trim(),
+      jobTitle: details.jobTitle.trim(),
+      department: details.department.trim(),
+      phone: details.phone.trim(),
+    };
+    if (!values.displayName) {
+      setNotice({ kind: "error", message: "Employee name cannot be empty." });
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "users", employee.uid), {
+        ...values,
+        updatedAt: serverTimestamp(),
+      });
+      setNotice({ kind: "success", message: `Updated ${values.displayName}'s profile.` });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function deleteEmployee(employee: EmployeeProfile) {
+    if (
+      !window.confirm(
+        `Delete ${employee.displayName}'s profile and all associated leave and attendance records? Their Google sign-in account will not be deleted.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const [leaveSnapshot, attendanceSnapshot] = await Promise.all([
+        getDocs(
+          query(
+            collection(db, "leaveRequests"),
+            where("employeeId", "==", employee.uid),
+          ),
+        ),
+        getDocs(
+          query(
+            collection(db, "attendance"),
+            where("employeeId", "==", employee.uid),
+          ),
+        ),
+      ]);
+      const references = [
+        ...leaveSnapshot.docs.map((item) => item.ref),
+        ...attendanceSnapshot.docs.map((item) => item.ref),
+        doc(db, "users", employee.uid),
+      ];
+
+      for (let index = 0; index < references.length; index += 450) {
+        const batch = writeBatch(db);
+        references
+          .slice(index, index + 450)
+          .forEach((reference) => batch.delete(reference));
+        await batch.commit();
+      }
+
+      setNotice({
+        kind: "success",
+        message: `Deleted ${employee.displayName}'s profile and associated records.`,
+      });
+    } catch (actionError) {
+      setNotice({
+        kind: "error",
+        message: `Could not completely delete ${employee.displayName}. Some associated records may already have been deleted. ${friendlyError(actionError)}`,
+      });
+    }
+  }
+
+  async function saveBoardNotice(
+    noticeId: string | null,
+    title: string,
+    body: string,
+  ): Promise<boolean> {
+    if (!user?.email || !isAdmin) {
+      setNotice({ kind: "error", message: "Only the administrator can publish notices." });
+      return false;
+    }
+    const values = { title: title.trim(), body: body.trim() };
+    if (values.title.length < 3 || values.title.length > 120 || !values.body || values.body.length > 4000) {
+      setNotice({
+        kind: "error",
+        message: "Use a title of 3–120 characters and message of 1–4000 characters.",
+      });
+      return false;
+    }
+
+    try {
+      if (noticeId) {
+        await updateDoc(doc(db, "notices", noticeId), {
+          ...values,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.email,
+        });
+        setNotice({ kind: "success", message: "Notice updated." });
+        return true;
+      } else {
+        await addDoc(collection(db, "notices"), {
+          ...values,
+          createdAt: serverTimestamp(),
+          createdBy: user.email,
+        });
+        setNotice({ kind: "success", message: "Notice published." });
+        return true;
+      }
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+      return false;
+    }
+  }
+
+  async function deleteBoardNotice(boardNotice: NoticePost) {
+    if (!window.confirm(`Delete the notice “${boardNotice.title}”?`)) return;
+    try {
+      await deleteDoc(doc(db, "notices", boardNotice.id));
+      setNotice({ kind: "success", message: "Notice deleted." });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
   async function updateLeaveBalances(
     employee: EmployeeProfile,
     fiscalYearStart: number,
@@ -553,6 +700,59 @@ function App() {
         kind: "success",
         message: `Leave request ${status === "approved" ? "approved" : "declined"}.`,
       });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function editLeaveRequest(request: LeaveRequest) {
+    const type = window.prompt(
+      "Leave type (Annual leave or Sick leave)",
+      request.type,
+    );
+    if (type === null) return;
+    const startDate = window.prompt("Start date (YYYY-MM-DD)", request.startDate);
+    if (startDate === null) return;
+    const endDate = window.prompt("End date (YYYY-MM-DD)", request.endDate);
+    if (endDate === null) return;
+    const reason = window.prompt("Reason", request.reason);
+    if (reason === null) return;
+
+    const trimmedReason = reason.trim();
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (
+      (type !== "Annual leave" && type !== "Sick leave") ||
+      !datePattern.test(startDate) ||
+      !datePattern.test(endDate) ||
+      endDate < startDate ||
+      trimmedReason.length < 3 ||
+      trimmedReason.length > 1000
+    ) {
+      setNotice({
+        kind: "error",
+        message: "Enter a valid leave type, date range, and reason (3–1000 characters).",
+      });
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "leaveRequests", request.id), {
+        type,
+        startDate,
+        endDate,
+        reason: trimmedReason,
+      });
+      setNotice({ kind: "success", message: "Leave request updated." });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function deleteLeaveRequest(request: LeaveRequest) {
+    if (!window.confirm(`Delete ${request.employeeName}'s leave request?`)) return;
+    try {
+      await deleteDoc(doc(db, "leaveRequests", request.id));
+      setNotice({ kind: "success", message: "Leave request deleted." });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
     }
@@ -635,6 +835,57 @@ function App() {
       });
       formElement.reset();
       setNotice({ kind: "success", message: `Attendance saved for ${employee.displayName}.` });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function editAttendanceRecord(record: AttendanceRecord) {
+    const status = window.prompt(
+      "Attendance status (present, late, absent, or leave)",
+      record.status,
+    );
+    if (status === null) return;
+    if (
+      status !== "present" &&
+      status !== "late" &&
+      status !== "absent" &&
+      status !== "leave"
+    ) {
+      setNotice({ kind: "error", message: "Choose present, late, absent, or leave." });
+      return;
+    }
+    const note = window.prompt("Attendance note (up to 240 characters)", record.note);
+    if (note === null) return;
+    if (note.length > 240) {
+      setNotice({ kind: "error", message: "Attendance notes must be 240 characters or fewer." });
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "attendance", record.id), {
+        status,
+        note,
+        recordedAt: serverTimestamp(),
+        recordedBy: user?.email,
+      });
+      setNotice({ kind: "success", message: "Attendance record updated." });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function deleteAttendanceRecord(record: AttendanceRecord) {
+    if (
+      !window.confirm(
+        `Delete ${record.employeeName}'s attendance record for ${formatDate(record.date)}?`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, "attendance", record.id));
+      setNotice({ kind: "success", message: "Attendance record deleted." });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
     }
@@ -858,6 +1109,9 @@ function App() {
               requests={leaveRequests}
               pendingLeaves={pendingLeaves}
               attendance={attendance}
+              boardNotices={boardNotices}
+              onSaveNotice={saveBoardNotice}
+              onDeleteNotice={deleteBoardNotice}
               onNavigate={setSection}
               onApprove={changeApproval}
               onReview={reviewLeave}
@@ -872,6 +1126,8 @@ function App() {
               requests={leaveRequests}
               onSubmit={submitLeave}
               onReview={reviewLeave}
+              onEditRequest={editLeaveRequest}
+              onDeleteRequest={deleteLeaveRequest}
             />
           )}
           {activeSection === "attendance" && (
@@ -882,6 +1138,8 @@ function App() {
               records={attendance}
               leaveRequests={leaveRequests}
               onSubmit={recordAttendance}
+              onEditRecord={editAttendanceRecord}
+              onDeleteRecord={deleteAttendanceRecord}
             />
           )}
           {activeSection === "team" && isAdmin && (
@@ -889,6 +1147,8 @@ function App() {
               employees={employees}
               onApprove={changeApproval}
               onSaveLeaveBalances={updateLeaveBalances}
+              onSaveEmployeeDetails={updateEmployeeDetails}
+              onDeleteEmployee={deleteEmployee}
             />
           )}
         </div>
@@ -932,6 +1192,9 @@ function Overview({
   requests,
   pendingLeaves,
   attendance,
+  boardNotices,
+  onSaveNotice,
+  onDeleteNotice,
   onNavigate,
   onApprove,
   onReview,
@@ -943,6 +1206,13 @@ function Overview({
   requests: LeaveRequest[];
   pendingLeaves: LeaveRequest[];
   attendance: AttendanceRecord[];
+  boardNotices: NoticePost[];
+  onSaveNotice: (
+    noticeId: string | null,
+    title: string,
+    body: string,
+  ) => Promise<boolean>;
+  onDeleteNotice: (notice: NoticePost) => void;
   onNavigate: (section: PortalSection) => void;
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
@@ -952,6 +1222,18 @@ function Overview({
   ).length;
   const latestRequests = requests.slice(0, 5);
   const firstName = user.displayName?.split(" ")[0] || "there";
+  const [noticeTitle, setNoticeTitle] = useState("");
+  const [noticeBody, setNoticeBody] = useState("");
+  const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
+
+  async function submitNotice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (await onSaveNotice(editingNoticeId, noticeTitle, noticeBody)) {
+      setNoticeTitle("");
+      setNoticeBody("");
+      setEditingNoticeId(null);
+    }
+  }
 
   return (
     <>
@@ -980,6 +1262,92 @@ function Overview({
           <div className="art-dot art-dot-two" />
         </div>
         <span className="banner-date">{formatDate(today)}</span>
+      </section>
+
+      <section className="panel notice-board">
+        <PanelHeading
+          title="Notice board"
+          subtitle={isAdmin ? "Share updates with the whole team." : "Updates from the ADN administrator."}
+        />
+        {isAdmin && (
+          <form className="form-grid notice-editor" onSubmit={submitNotice}>
+            <label className="field field-full">
+              Notice title
+              <input
+                required
+                minLength={3}
+                maxLength={120}
+                value={noticeTitle}
+                onChange={(event) => setNoticeTitle(event.target.value)}
+              />
+            </label>
+            <label className="field field-full">
+              Message
+              <textarea
+                required
+                maxLength={4000}
+                rows={3}
+                value={noticeBody}
+                onChange={(event) => setNoticeBody(event.target.value)}
+              />
+            </label>
+            <div className="notice-editor-actions field-full">
+              <Button type="submit">
+                {editingNoticeId ? "Save changes" : "Publish notice"}
+              </Button>
+              {editingNoticeId && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setEditingNoticeId(null);
+                    setNoticeTitle("");
+                    setNoticeBody("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+          </form>
+        )}
+        {boardNotices.length ? (
+          <div className="notice-board-list">
+            {boardNotices.map((post) => (
+              <article className="notice-board-item" key={post.id}>
+                <div className="notice-board-heading">
+                  <div>
+                    <h3>{post.title}</h3>
+                    <small>{formatTimestamp(post.updatedAt ?? post.createdAt)} · {post.createdBy}</small>
+                  </div>
+                  {isAdmin && (
+                    <div className="decision-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setEditingNoticeId(post.id);
+                          setNoticeTitle(post.title);
+                          setNoticeBody(post.body);
+                        }}
+                      >
+                        <Pencil size={15} /> Edit
+                      </Button>
+                      <Button variant="secondary" onClick={() => onDeleteNotice(post)}>
+                        <Trash2 size={15} /> Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <p>{post.body}</p>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={<FilePlus2 size={20} />}
+            title="No notices yet"
+            text={isAdmin ? "Publish a notice to share it with employees." : "Admin announcements will appear here."}
+          />
+        )}
       </section>
 
       {isAdmin ? (
@@ -1266,6 +1634,8 @@ function LeavesPage({
   requests,
   onSubmit,
   onReview,
+  onEditRequest,
+  onDeleteRequest,
 }: {
   isAdmin: boolean;
   user: User;
@@ -1274,6 +1644,8 @@ function LeavesPage({
   requests: LeaveRequest[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
+  onEditRequest: (request: LeaveRequest) => void;
+  onDeleteRequest: (request: LeaveRequest) => void;
 }) {
   const waiting = requests.filter((request) => request.status === "pending").length;
   const currentFiscalYear = fiscalYearStartForDate(new Date());
@@ -1288,6 +1660,15 @@ function LeavesPage({
       (total, request) =>
         request.type === type &&
         (!employeeId || request.employeeId === employeeId)
+          ? total + daysInFiscalYear(request, fiscalYearStart)
+          : total,
+      0,
+    );
+  const reservedDays = (type: LeaveType) =>
+    requests.reduce(
+      (total, request) =>
+        request.type === type &&
+        (request.status === "pending" || request.status === "approved")
           ? total + daysInFiscalYear(request, fiscalYearStart)
           : total,
       0,
@@ -1347,7 +1728,12 @@ function LeavesPage({
           </section>
           <section className="panel">
             <PanelHeading title="All requests" subtitle="A record of leave decisions across the team." />
-            <LeaveTable requests={requests} showEmployee />
+            <LeaveTable
+              requests={requests}
+              showEmployee
+              onEdit={onEditRequest}
+              onDelete={onDeleteRequest}
+            />
           </section>
           <section className="panel">
             <div className="panel-heading panel-heading-search">
@@ -1401,7 +1787,7 @@ function LeavesPage({
             <div className="panel-heading panel-heading-search">
               <div>
                 <h2>Leave balances · {formatFiscalYear(fiscalYearStart)}</h2>
-                <p>Remaining balances are maintained by your administrator. Approved usage is shown separately.</p>
+                <p>Pending and approved requests reduce your available balance. Declined requests do not.</p>
               </div>
               <label className="filter-select">
                 <span className="sr-only">Select fiscal year</span>
@@ -1420,16 +1806,20 @@ function LeavesPage({
               {([
                 { type: "Annual leave" as const, days: selectedBalance?.annualDays },
                 { type: "Sick leave" as const, days: selectedBalance?.sickDays },
-              ]).map(({ type, days }) => (
+              ]).map(({ type, days }) => {
+                const reserved = reservedDays(type);
+                const available = days === undefined ? undefined : Math.max(0, days - reserved);
+                return (
                 <div
                   className={`leave-balance-card leave-balance-${type === "Annual leave" ? "annual" : "sick"}`}
                   key={type}
                 >
                   <strong>{type}</strong>
-                  <span>{days === undefined ? "Not set" : `${days} days available`}</span>
-                  <small>{approvedDays(type)} approved this fiscal year</small>
+                  <span>{available === undefined ? "Not set" : `${available} days available`}</span>
+                  <small>{reserved} days used or pending this fiscal year</small>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </section>
           <div className="leave-layout">
@@ -1512,9 +1902,13 @@ function LeavesPage({
 function LeaveTable({
   requests,
   showEmployee,
+  onEdit,
+  onDelete,
 }: {
   requests: LeaveRequest[];
   showEmployee: boolean;
+  onEdit?: (request: LeaveRequest) => void;
+  onDelete?: (request: LeaveRequest) => void;
 }) {
   if (!requests.length) {
     return (
@@ -1536,6 +1930,7 @@ function LeaveTable({
             <th>DAYS</th>
             <th>SUBMITTED</th>
             <th>STATUS</th>
+            {(onEdit || onDelete) && <th className="align-right">ACTIONS</th>}
           </tr>
         </thead>
         <tbody>
@@ -1554,6 +1949,22 @@ function LeaveTable({
               <td>{dayCount(request.startDate, request.endDate)}</td>
               <td>{formatTimestamp(request.createdAt)}</td>
               <td><StatusPill status={request.status} /></td>
+              {(onEdit || onDelete) && (
+                <td className="align-right">
+                  <div className="decision-actions">
+                    {onEdit && (
+                      <Button variant="secondary" onClick={() => onEdit(request)}>
+                        <Pencil size={15} /> Edit
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button variant="secondary" onClick={() => onDelete(request)}>
+                        <Trash2 size={15} /> Delete
+                      </Button>
+                    )}
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -1569,6 +1980,8 @@ function AttendancePage({
   records,
   leaveRequests,
   onSubmit,
+  onEditRecord,
+  onDeleteRecord,
 }: {
   isAdmin: boolean;
   user: User;
@@ -1576,6 +1989,8 @@ function AttendancePage({
   records: AttendanceRecord[];
   leaveRequests: LeaveRequest[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onEditRecord: (record: AttendanceRecord) => void;
+  onDeleteRecord: (record: AttendanceRecord) => void;
 }) {
   const [search, setSearch] = useState("");
   const [calendarMonth, setCalendarMonth] = useState(
@@ -1883,6 +2298,7 @@ function AttendancePage({
                   <th>STATUS</th>
                   <th>NOTE</th>
                   {isAdmin && <th>RECORDED BY</th>}
+                  {isAdmin && <th className="align-right">ACTIONS</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1900,6 +2316,18 @@ function AttendancePage({
                     <td><StatusPill status={record.status} /></td>
                     <td className="reason-cell">{record.note || "—"}</td>
                     {isAdmin && <td>{record.recordedBy}</td>}
+                    {isAdmin && (
+                      <td className="align-right">
+                        <div className="decision-actions">
+                          <Button variant="secondary" onClick={() => onEditRecord(record)}>
+                            <Pencil size={15} /> Edit
+                          </Button>
+                          <Button variant="secondary" onClick={() => onDeleteRecord(record)}>
+                            <Trash2 size={15} /> Delete
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -1921,6 +2349,8 @@ function TeamPage({
   employees,
   onApprove,
   onSaveLeaveBalances,
+  onSaveEmployeeDetails,
+  onDeleteEmployee,
 }: {
   employees: EmployeeProfile[];
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
@@ -1930,8 +2360,14 @@ function TeamPage({
     annualDays: number,
     sickDays: number,
   ) => Promise<void>;
+  onSaveEmployeeDetails: (
+    employee: EmployeeProfile,
+    details: EmployeeProfileDetails,
+  ) => Promise<void>;
+  onDeleteEmployee: (employee: EmployeeProfile) => void;
 }) {
   const [filter, setFilter] = useState<"all" | ApprovalStatus>("all");
+  const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null);
   const currentFiscalYear = fiscalYearStartForDate(new Date());
   const [fiscalYearStart, setFiscalYearStart] = useState(currentFiscalYear);
   const fiscalYears = useMemo(
@@ -1940,6 +2376,9 @@ function TeamPage({
   );
   const visibleEmployees = employees.filter(
     (employee) => filter === "all" || employee.status === filter,
+  );
+  const selectedEmployee = employees.find(
+    (employee) => employee.uid === profileEmployeeId,
   );
 
   return (
@@ -2006,16 +2445,24 @@ function TeamPage({
                       />
                     </td>
                     <td className="align-right">
+                      <div className="decision-actions">
                       {employee.status === "pending" ? (
-                        <div className="decision-actions">
+                        <>
                           <Button variant="secondary" onClick={() => onApprove(employee, "rejected")}>Decline</Button>
                           <Button onClick={() => onApprove(employee, "approved")}><Check size={15} /> Approve</Button>
-                        </div>
+                        </>
                       ) : employee.status === "rejected" ? (
                         <Button variant="secondary" onClick={() => onApprove(employee, "approved")}>Approve access</Button>
                       ) : (
                         <span className="muted-cell">Access granted</span>
                       )}
+                        <Button variant="secondary" onClick={() => setProfileEmployeeId(employee.uid)}>
+                          <Users size={15} /> View profile
+                        </Button>
+                        <Button variant="secondary" onClick={() => onDeleteEmployee(employee)}>
+                          <Trash2 size={15} /> Delete
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -2026,11 +2473,109 @@ function TeamPage({
           <EmptyState icon={<Users size={20} />} title="No employee accounts" text="New Google sign-ins will appear here for approval." />
         )}
       </section>
+      {selectedEmployee && (
+        <EmployeeProfileDetailsPanel
+          key={selectedEmployee.uid}
+          employee={selectedEmployee}
+          onSave={onSaveEmployeeDetails}
+          onClose={() => setProfileEmployeeId(null)}
+        />
+      )}
       <section className="admin-note">
         <ShieldCheck size={18} />
         <p><strong>Admin-only controls.</strong> Only the ADN administrator can change employee access or manually set annual and sick balances for each fiscal year.</p>
       </section>
     </div>
+  );
+}
+
+function EmployeeProfileDetailsPanel({
+  employee,
+  onSave,
+  onClose,
+}: {
+  employee: EmployeeProfile;
+  onSave: (
+    employee: EmployeeProfile,
+    details: EmployeeProfileDetails,
+  ) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [displayName, setDisplayName] = useState(employee.displayName);
+  const [jobTitle, setJobTitle] = useState(employee.jobTitle ?? "");
+  const [department, setDepartment] = useState(employee.department ?? "");
+  const [phone, setPhone] = useState(employee.phone ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await onSave(employee, { displayName, jobTitle, department, phone });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-heading panel-heading-search">
+        <div>
+          <h2>Employee profile</h2>
+          <p>{employee.email} · <StatusPill status={employee.status} /></p>
+        </div>
+        <Button variant="secondary" onClick={onClose}>Close profile</Button>
+      </div>
+      <form className="form-grid employee-profile-form" onSubmit={submit}>
+        <label className="field">
+          Display name
+          <input
+            required
+            maxLength={120}
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          Email
+          <input value={employee.email} disabled />
+        </label>
+        <label className="field">
+          Job title
+          <input
+            maxLength={120}
+            value={jobTitle}
+            onChange={(event) => setJobTitle(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          Department
+          <input
+            maxLength={120}
+            value={department}
+            onChange={(event) => setDepartment(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          Phone number
+          <input
+            type="tel"
+            maxLength={50}
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+          />
+        </label>
+        <div className="field employee-profile-joined">
+          Registered
+          <span>{formatTimestamp(employee.createdAt)}</span>
+        </div>
+        <div className="form-foot field-full">
+          <Button type="submit" disabled={saving}>
+            {saving ? "Saving…" : "Save profile"}
+          </Button>
+        </div>
+      </form>
+    </section>
   );
 }
 

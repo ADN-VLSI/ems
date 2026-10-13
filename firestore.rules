@@ -54,9 +54,30 @@ service cloud.firestore {
             ])
             && request.resource.data.leaveBalances is map
           )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'displayName', 'updatedAt'
+            ])
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'displayName', 'jobTitle', 'department', 'phone', 'updatedAt'
+            ])
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
+            && request.resource.data.displayName.size() <= 120
+            && request.resource.data.jobTitle is string
+            && request.resource.data.jobTitle.size() <= 120
+            && request.resource.data.department is string
+            && request.resource.data.department.size() <= 120
+            && request.resource.data.phone is string
+            && request.resource.data.phone.size() <= 50
+          )
         );
 
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /leaveRequests/{requestId} {
@@ -88,15 +109,33 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       allow update: if isAdmin()
-        && resource.data.status == 'pending'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'status', 'reviewedAt', 'reviewedBy'
-        ])
-        && request.resource.data.status in ['approved', 'rejected']
-        && request.resource.data.reviewedAt == request.time
-        && request.resource.data.reviewedBy == request.auth.token.email;
+        && (
+          (
+            resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'reviewedAt', 'reviewedBy'
+            ])
+            && request.resource.data.status in ['approved', 'rejected']
+            && request.resource.data.reviewedAt == request.time
+            && request.resource.data.reviewedBy == request.auth.token.email
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'type', 'startDate', 'endDate', 'reason'
+            ])
+            && request.resource.data.type in ['Annual leave', 'Sick leave']
+            && request.resource.data.startDate is string
+            && request.resource.data.startDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+            && request.resource.data.endDate is string
+            && request.resource.data.endDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
+            && request.resource.data.endDate >= request.resource.data.startDate
+            && request.resource.data.reason is string
+            && request.resource.data.reason.size() >= 3
+            && request.resource.data.reason.size() <= 1000
+          )
+        );
 
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /attendance/{recordId} {
@@ -132,7 +171,42 @@ service cloud.firestore {
           )
         );
 
-      allow delete: if false;
+      allow delete: if isAdmin();
+    }
+
+    match /notices/{noticeId} {
+      allow get, list: if isAdmin() || isApprovedEmployee();
+
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasAll([
+          'title', 'body', 'createdAt', 'createdBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'title', 'body', 'createdAt', 'createdBy'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 3
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 4000
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.createdBy == request.auth.token.email;
+
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'title', 'body', 'updatedAt', 'updatedBy'
+        ])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 3
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() > 0
+        && request.resource.data.body.size() <= 4000
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.token.email;
+
+      allow delete: if isAdmin();
     }
   }
 }

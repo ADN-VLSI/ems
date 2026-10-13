@@ -15,6 +15,9 @@ export interface EmployeeProfile {
   email: string;
   displayName: string;
   status: ApprovalStatus;
+  jobTitle?: string;
+  department?: string;
+  phone?: string;
   leaveBalances?: Record<string, LeaveBalance>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
@@ -44,6 +47,16 @@ export interface AttendanceRecord {
   note: string;
   recordedAt?: Timestamp;
   recordedBy: string;
+}
+
+export interface NoticePost {
+  id: string;
+  title: string;
+  body: string;
+  createdAt?: Timestamp;
+  createdBy: string;
+  updatedAt?: Timestamp;
+  updatedBy?: string;
 }
 
 export type PortalSection = "overview" | "leaves" | "attendance" | "team";

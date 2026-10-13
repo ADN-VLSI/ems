@@ -17,6 +17,7 @@ import type {
   AttendanceRecord,
   EmployeeProfile,
   LeaveRequest,
+  NoticePost,
 } from "./types";
 
 function asRecords<T>(snapshot: QuerySnapshot<DocumentData>): T[] {
@@ -108,6 +109,17 @@ export function listenToAttendance(
   return onSnapshot(
     recordQuery,
     (snapshot) => next(asRecords<AttendanceRecord>(snapshot)),
+    fail,
+  );
+}
+
+export function listenToNotices(
+  next: (notices: NoticePost[]) => void,
+  fail: (error: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "notices"), orderBy("createdAt", "desc")),
+    (snapshot) => next(asRecords<NoticePost>(snapshot)),
     fail,
   );
 }
