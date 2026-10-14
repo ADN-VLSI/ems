@@ -1096,22 +1096,6 @@ function App() {
             </NavButton>
           )}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-user">
-            {user.photoURL ? (
-              <img className="avatar avatar-photo" src={user.photoURL} alt="" />
-            ) : (
-              <Initials name={user.displayName || "ADN"} />
-            )}
-            <span className="sidebar-user-copy">
-              <strong>{user.displayName || "ADN team member"}</strong>
-              <small>{isAdmin ? "Admin" : "Team member"}</small>
-            </span>
-            <button className="icon-button" aria-label="Sign out" onClick={handleSignOut}>
-              <LogOut size={17} />
-            </button>
-          </div>
-        </div>
       </aside>
 
       <main className="main-panel">
@@ -1128,14 +1112,19 @@ function App() {
             <span className="crumb-divider">/</span>
             <strong>{sectionTitles[activeSection]}</strong>
           </div>
-          <div className="topbar-right">
-            <span className="today-chip"><CalendarDays size={15} /> {formatDate(today)}</span>
-            <span className="topbar-divider" />
+          <div className="topbar-account">
             {user.photoURL ? (
               <img className="avatar avatar-photo" src={user.photoURL} alt="" />
             ) : (
               <Initials name={user.displayName || "ADN"} />
             )}
+            <span className="topbar-account-copy">
+              <strong>{user.displayName || "ADN team member"}</strong>
+              <small>{isAdmin ? "Admin" : "Team member"}</small>
+            </span>
+            <button className="icon-button" aria-label="Sign out" onClick={handleSignOut}>
+              <LogOut size={17} />
+            </button>
           </div>
         </header>
 

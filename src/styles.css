@@ -607,10 +607,6 @@ a {
   font-weight: 700;
 }
 
-.sidebar-bottom {
-  margin-top: auto;
-}
-
 .help-card {
   display: flex;
   align-items: center;
@@ -662,12 +658,11 @@ a {
   color: #718096;
 }
 
-.sidebar-user {
+.topbar-account {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 12px 4px 4px;
-  border-top: 1px solid #edf0f3;
+  flex: 0 0 auto;
 }
 
 .avatar {
@@ -688,15 +683,15 @@ a {
   object-fit: cover;
 }
 
-.sidebar-user-copy {
+.topbar-account-copy {
   display: flex;
   min-width: 0;
-  flex: 1;
   flex-direction: column;
   gap: 3px;
 }
 
-.sidebar-user-copy strong {
+.topbar-account-copy strong {
+  max-width: 180px;
   overflow: hidden;
   color: #354357;
   font-size: 13.5px;
@@ -704,7 +699,7 @@ a {
   white-space: nowrap;
 }
 
-.sidebar-user-copy small {
+.topbar-account-copy small {
   color: #929dab;
   font-size: 12.15px;
 }
@@ -766,30 +761,6 @@ a {
 
 .crumb-divider {
   color: #c0c6ce;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.today-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #7b8797;
-  font-size: 13.5px;
-}
-
-.today-chip svg {
-  color: #8498b8;
-}
-
-.topbar-divider {
-  width: 1px;
-  height: 23px;
-  background: #e7ebef;
 }
 
 .page-content {
@@ -2558,25 +2529,13 @@ tbody tr:last-child td {
 
   .breadcrumbs {
     flex: 1;
+    min-width: 0;
     margin-left: 8px;
     font-size: 13.5px;
   }
 
-  .topbar-right {
-    gap: 9px;
-  }
-
-  .today-chip {
-    display: none;
-  }
-
-  .topbar-divider {
-    display: none;
-  }
-
-  .topbar-right .avatar {
-    width: 30px;
-    height: 30px;
+  .topbar-account-copy strong {
+    max-width: 96px;
   }
 
   .page-content {
