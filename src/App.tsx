@@ -1546,7 +1546,7 @@ function Overview({
           </div>
         </div>
         <div className="welcome-art" aria-hidden="true">
-          <svg viewBox="0 0 1200 280" preserveAspectRatio="none" focusable="false">
+          <svg viewBox="0 0 1200 280" preserveAspectRatio="xMaxYMid slice" focusable="false">
             <defs>
               <linearGradient id="overview-panorama-hill" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stopColor="#83c2c0" stopOpacity=".4" />
