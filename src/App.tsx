@@ -32,6 +32,7 @@ import {
   Clock3,
   FilePlus2,
   Fingerprint,
+  ListChecks,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -57,6 +58,7 @@ import {
   listenToProfile,
 } from "./data";
 import { ConcernsPage, needsAdminReply } from "./Concerns";
+import { DailyUpdatesPage, DailyUpdateSummary } from "./DailyUpdates";
 import type {
   ApprovalStatus,
   AttendanceRecord,
@@ -84,6 +86,7 @@ const sectionTitles: Record<PortalSection, string> = {
   leaves: "Leave management",
   attendance: "Attendance",
   concerns: "Concerns",
+  daily: "Daily update",
   profile: "My profile",
   team: "Employee directory",
 };
@@ -1022,6 +1025,13 @@ function App() {
             Attendance
           </NavButton>
           <NavButton
+            icon={<ListChecks size={18} />}
+            active={activeSection === "daily"}
+            onClick={() => { setSection("daily"); setMobileNavOpen(false); }}
+          >
+            Daily update
+          </NavButton>
+          <NavButton
             icon={<MessageSquareText size={18} />}
             active={activeSection === "concerns"}
             onClick={() => { setSection("concerns"); setMobileNavOpen(false); }}
@@ -1124,6 +1134,10 @@ function App() {
                       ? isAdmin
                         ? "Record daily attendance for your approved team."
                         : "Your attendance is recorded by the ADN administrator."
+                        : activeSection === "daily"
+                          ? isAdmin
+                            ? "Updates submitted by employees today."
+                            : "Share today's tasks, blockers and plans."
                         : activeSection === "concerns"
                           ? isAdmin
                             ? "Private one-to-one conversations with employees."
@@ -1176,6 +1190,7 @@ function App() {
               onDeleteNotice={deleteBoardNotice}
               onApprove={changeApproval}
               onReview={reviewLeave}
+              onOpenDaily={() => setSection("daily")}
             />
           )}
           {activeSection === "profile" && !isAdmin && profile && (
@@ -1204,6 +1219,15 @@ function App() {
               onSubmit={recordAttendance}
               onEditRecord={editAttendanceRecord}
               onDeleteRecord={deleteAttendanceRecord}
+            />
+          )}
+          {activeSection === "daily" && (
+            <DailyUpdatesPage
+              isAdmin={Boolean(isAdmin)}
+              userId={user.uid}
+              userEmail={user.email ?? ""}
+              userName={user.displayName || user.email?.split("@")[0] || "Employee"}
+              onNotice={(kind, message) => setNotice({ kind, message })}
             />
           )}
           {activeSection === "concerns" && (
@@ -1272,6 +1296,7 @@ function Overview({
   onDeleteNotice,
   onApprove,
   onReview,
+  onOpenDaily,
 }: {
   isAdmin: boolean;
   user: User;
@@ -1290,6 +1315,7 @@ function Overview({
   onDeleteNotice: (notice: NoticePost) => void;
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
+  onOpenDaily: () => void;
 }) {
   const todayAttendance = attendance.filter((record) => record.date === today);
   const todayAttendanceRecord = attendance.find((record) => record.date === today);
@@ -1378,6 +1404,10 @@ function Overview({
         </div>
         <span className="banner-date">{formatDate(today)}</span>
       </section>
+
+      {!isAdmin && profile?.status === "approved" && (
+        <DailyUpdateSummary userId={user.uid} onOpen={onOpenDaily} />
+      )}
 
       <section className="panel notice-board">
         <PanelHeading

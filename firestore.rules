@@ -187,6 +187,52 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Submissions close at 9:00 PM Asia/Dhaka (UTC+6, no DST) = 15:00-18:00 UTC.
+    function dailyWindowOpen() {
+      let msOfDay = request.time.toMillis() % 86400000;
+      return msOfDay < 54000000 || msOfDay >= 64800000;
+    }
+
+    function validBullets(items) {
+      return items is list && items.size() <= 30;
+    }
+
+    function validDailyUpdate(uid) {
+      return request.resource.data.keys().hasOnly([
+          'employeeId', 'employeeEmail', 'employeeName', 'date',
+          'todaysTasks', 'suddenTasks', 'blockers', 'plans', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'employeeId', 'employeeEmail', 'employeeName', 'date',
+          'todaysTasks', 'suddenTasks', 'blockers', 'plans', 'updatedAt'
+        ])
+        && request.resource.data.employeeId == uid
+        && request.resource.data.employeeEmail == request.auth.token.email
+        && request.resource.data.employeeName is string
+        && request.resource.data.employeeName.size() <= 120
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && validBullets(request.resource.data.todaysTasks)
+        && validBullets(request.resource.data.suddenTasks)
+        && validBullets(request.resource.data.blockers)
+        && validBullets(request.resource.data.plans)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // One document per employee for the current day; the 9 PM job emails and deletes them.
+    match /dailyUpdates/{uid} {
+      allow get, list: if isAdmin()
+        || (isApprovedEmployee() && request.auth.uid == uid);
+
+      allow create, update: if isApprovedEmployee()
+        && request.auth.uid == uid
+        && dailyWindowOpen()
+        && validDailyUpdate(uid);
+
+      allow delete: if isAdmin()
+        || (isApprovedEmployee() && request.auth.uid == uid && dailyWindowOpen());
+    }
+
     match /concerns/{concernId} {
       allow get, list: if isAdmin()
         || (isApprovedEmployee() && resource.data.employeeId == request.auth.uid);

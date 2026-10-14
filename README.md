@@ -13,6 +13,17 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 - The overview includes an administrator-managed notice board and employee profiles with editable display name, GitHub ID, track records, and phone details.
 - Firestore security rules enforce these permissions independently of the UI.
 
+## Daily updates
+
+Approved employees open **Daily update** and fill four bullet-point sections: Today's Tasks, Sudden Tasks, Blockers, and Plans Going Forward. They can submit, edit, or remove it until 9:00 PM Asia/Dhaka (enforced by Firestore rules). At 9:00 PM the `.github/workflows/daily-updates.yml` workflow runs `scripts/send-daily-updates.mjs`, which emails all updates (plus employees who didn't submit) to `info@adnsemicon.com` and then deletes the `dailyUpdates` documents. If sending fails, nothing is deleted and the workflow can be re-run manually.
+
+Add these GitHub repository secrets (**Settings → Secrets and variables → Actions**):
+
+- `FIREBASE_SERVICE_ACCOUNT`: full JSON of a Firebase service account key (Project settings → Service accounts).
+- `SMTP_HOST`, `SMTP_PORT` (465 or 587), `SMTP_USER`, `SMTP_PASS`, and optional `SMTP_FROM`.
+
+Then deploy the updated rules (`npx firebase-tools deploy --only firestore:rules`). GitHub cron can start a few minutes late.
+
 ## Local development
 
 Requirements: Node.js 22+ and npm.
@@ -69,5 +80,6 @@ The deployed site will be available at `https://adn-vlsi.github.io/ems/`.
 - `leaveRequests/{requestId}`: employee-owned submissions and admin-controlled decisions.
 - `attendance/{uid_YYYY-MM-DD}`: daily status entered by the administrator.
 - `notices/{noticeId}`: announcements published and managed by the administrator.
+- `dailyUpdates/{uid}`: the employee's current-day update; emailed and deleted at 9:00 PM.
 
 Attendance is intentionally not a clock-in system: employees cannot create or modify attendance records.

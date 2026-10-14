@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -23,6 +24,8 @@ import type {
   ConcernAuthorRole,
   ConcernMessage,
   ConcernStatus,
+  DailyUpdate,
+  DailyUpdateFields,
   EmployeeProfile,
   LeaveRequest,
   NoticePost,
@@ -119,6 +122,76 @@ export function listenToAttendance(
     (snapshot) => next(asRecords<AttendanceRecord>(snapshot)),
     fail,
   );
+}
+
+export function dhakaDateParts(now = new Date()): { date: string; hour: number } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Dhaka",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, part.value]),
+  );
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+}
+
+export function dailyUpdatesOpen(now = new Date()): boolean {
+  return dhakaDateParts(now).hour < 21;
+}
+
+export function listenToOwnDailyUpdate(
+  uid: string,
+  next: (update: DailyUpdate | null) => void,
+  fail: (error: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, "dailyUpdates", uid),
+    (snapshot) =>
+      next(snapshot.exists() ? ({ id: snapshot.id, ...snapshot.data() } as DailyUpdate) : null),
+    fail,
+  );
+}
+
+export function listenToAllDailyUpdates(
+  next: (updates: DailyUpdate[]) => void,
+  fail: (error: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, "dailyUpdates"),
+    (snapshot) =>
+      next(
+        asRecords<DailyUpdate>(snapshot).sort((a, b) =>
+          a.employeeName.localeCompare(b.employeeName),
+        ),
+      ),
+    fail,
+  );
+}
+
+export async function saveDailyUpdate(
+  user: { uid: string; email: string; name: string },
+  fields: DailyUpdateFields,
+): Promise<void> {
+  await setDoc(doc(db, "dailyUpdates", user.uid), {
+    employeeId: user.uid,
+    employeeEmail: user.email,
+    employeeName: user.name,
+    date: dhakaDateParts().date,
+    todaysTasks: fields.todaysTasks,
+    suddenTasks: fields.suddenTasks,
+    blockers: fields.blockers,
+    plans: fields.plans,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteDailyUpdate(uid: string): Promise<void> {
+  await deleteDoc(doc(db, "dailyUpdates", uid));
 }
 
 export function listenToConcerns(

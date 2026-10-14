@@ -89,8 +89,27 @@ export interface ConcernMessage {
   createdAt?: Timestamp;
 }
 
+export interface DailyUpdate {
+  id: string;
+  employeeId: string;
+  employeeEmail: string;
+  employeeName: string;
+  date: string;
+  todaysTasks: string[];
+  suddenTasks: string[];
+  blockers: string[];
+  plans: string[];
+  updatedAt?: Timestamp;
+}
+
+export type DailyUpdateFields = Pick<
+  DailyUpdate,
+  "todaysTasks" | "suddenTasks" | "blockers" | "plans"
+>;
+
 export type PortalSection =
   | "overview"
+  | "daily"
   | "leaves"
   | "attendance"
   | "concerns"

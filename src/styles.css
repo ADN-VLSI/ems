@@ -2956,3 +2956,70 @@ tbody tr:last-child td {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.daily-form,
+.daily-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.daily-section {
+  margin-bottom: 14px;
+}
+
+.daily-section h3 {
+  margin: 0;
+  color: #344154;
+  font-size: 15px;
+}
+
+.daily-section h3 small {
+  color: #919ba8;
+  font-weight: 400;
+}
+
+.bullet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bullet-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 39px;
+  padding: 0 10px;
+  border: 1px solid #e2e7ed;
+  border-radius: 7px;
+  color: #465367;
+  font-size: 13.5px;
+}
+
+.daily-section > .button {
+  align-self: flex-start;
+}
+
+.form-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bullet-view {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  color: #465367;
+  font-size: 13.5px;
+}
+
+.daily-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 700px) {
+  .daily-summary {
+    grid-template-columns: 1fr;
+  }
+}
