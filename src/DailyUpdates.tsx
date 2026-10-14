@@ -4,9 +4,11 @@ import {
   dailyUpdatesOpen,
   deleteDailyUpdate,
   dhakaDateParts,
+  listenToDailyUpdateControl,
   listenToAllDailyUpdates,
   listenToOwnDailyUpdate,
   saveDailyUpdate,
+  type DailyUpdateControl,
 } from "./data";
 import type { DailyUpdate, DailyUpdateFields } from "./types";
 
@@ -50,13 +52,47 @@ function cleanItems(items: string[]): string[] {
   return items.map((item) => item.trim()).filter(Boolean);
 }
 
-function useDailyWindow(): boolean {
-  const [open, setOpen] = useState(dailyUpdatesOpen());
+function useDailyWindow(onNotice: Props["onNotice"]): { open: boolean; date: string } {
+  const [dailyWindow, setWindow] = useState(() => ({
+    open: dailyUpdatesOpen(),
+    date: dhakaDateParts().date,
+  }));
   useEffect(() => {
-    const timer = window.setInterval(() => setOpen(dailyUpdatesOpen()), 15000);
-    return () => window.clearInterval(timer);
-  }, []);
-  return open;
+    let control: DailyUpdateControl | null = null;
+    let receivedControl = false;
+    let failed = false;
+    const refresh = () =>
+      setWindow({
+        open: failed
+          ? false
+          : receivedControl
+            ? control
+              ? dailyUpdatesOpen(new Date(), control)
+              : dailyUpdatesOpen()
+            : false,
+        date: control?.collectingDate ?? dhakaDateParts().date,
+      });
+    const timer = window.setInterval(refresh, 15000);
+    const unsubscribe = listenToDailyUpdateControl(
+      (nextControl) => {
+        control = nextControl;
+        receivedControl = true;
+        refresh();
+      },
+      (error) => {
+        receivedControl = true;
+        failed = true;
+        control = null;
+        setWindow({ open: false, date: dhakaDateParts().date });
+        onNotice("error", `Could not load daily update status. ${errorText(error)}`);
+      },
+    );
+    return () => {
+      window.clearInterval(timer);
+      unsubscribe();
+    };
+  }, [onNotice]);
+  return dailyWindow;
 }
 
 function BulletList({ items }: { items: string[] }) {
@@ -95,8 +131,8 @@ export function DailyUpdateSummary({
           <h2>Your daily update</h2>
           <p>
             {update
-              ? "Read-only summary of what you submitted today."
-              : "You haven't submitted today's update yet."}
+              ? "Read-only summary of what you submitted for this reporting day."
+              : "You haven't submitted an update for this reporting day yet."}
           </p>
         </div>
         <button type="button" className="button button-secondary" onClick={onOpen}>
@@ -118,7 +154,7 @@ export function DailyUpdateSummary({
 }
 
 function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
-  const open = useDailyWindow();
+  const dailyWindow = useDailyWindow(onNotice);
   const [draft, setDraft] = useState<Record<FieldKey, string[]>>(emptyDraft);
   const [saved, setSaved] = useState<DailyUpdate | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -164,7 +200,7 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
-    if (!dailyUpdatesOpen()) {
+    if (!dailyWindow.open) {
       onNotice("error", "Daily updates closed at 9:00 PM.");
       return;
     }
@@ -180,7 +216,7 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
     }
     setBusy(true);
     try {
-      await saveDailyUpdate({ uid: userId, email: userEmail, name: userName }, fields);
+      await saveDailyUpdate({ uid: userId, email: userEmail, name: userName }, fields, dailyWindow.date);
       setDraft(toDraft({ ...(saved as DailyUpdate), ...fields }));
       onNotice("success", "Your daily update was saved. You can edit it until 9:00 PM.");
     } catch (error) {
@@ -204,15 +240,15 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
     }
   }
 
-  if (!open) {
+  if (!dailyWindow.open) {
     return (
       <section className="panel">
         <div className="panel-heading">
           <div>
             <h2>Daily update</h2>
             <p>
-              Submissions closed at 9:00 PM. Today's updates are sent to the administrator, and the
-              form reopens tomorrow.
+              Submissions pause at 9:00 PM while the updates are emailed. The form reopens for the
+              next reporting day after the email is sent.
             </p>
           </div>
         </div>
@@ -224,10 +260,10 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
     <section className="panel">
       <div className="panel-heading">
         <div>
-          <h2>Daily update · {dhakaDateParts().date}</h2>
+          <h2>Daily update · {dailyWindow.date}</h2>
           <p>
-            Write each item as a bullet point. You can submit and edit until 9:00 PM (Dhaka time);
-            after that it is emailed to the administrator and cleared.
+            Write each item as a bullet point. You can submit and edit until 9:00 PM (Dhaka time).
+            The next reporting day opens after the previous update email is sent.
           </p>
         </div>
       </div>
@@ -303,7 +339,7 @@ function AdminView({ onNotice }: Props) {
     <section className="panel">
       <div className="panel-heading">
         <div>
-          <h2>Today's daily updates</h2>
+          <h2>Daily updates</h2>
           <p>
             Collected until 9:00 PM, then emailed to info@adnsemicon.com and cleared automatically.
           </p>

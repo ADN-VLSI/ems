@@ -15,7 +15,7 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 
 ## Daily updates
 
-Approved employees open **Daily update** and fill four bullet-point sections: Today's Tasks, Sudden Tasks, Blockers, and Plans Going Forward. They can submit, edit, or remove it until 9:00 PM Asia/Dhaka (enforced by Firestore rules). At 9:00 PM the `.github/workflows/daily-updates.yml` workflow runs `scripts/send-daily-updates.mjs`, which emails all updates (plus employees who didn't submit) to `info@adnsemicon.com` and then deletes the `dailyUpdates` documents. If sending fails, nothing is deleted and the workflow can be re-run manually.
+Approved employees open **Daily update** and fill four bullet-point sections: Today's Tasks, Sudden Tasks, Blockers, and Plans Going Forward. They can submit, edit, or remove updates for the current reporting day until 9:00 PM Asia/Dhaka (enforced by Firestore rules). At 9:00 PM the `.github/workflows/daily-updates.yml` workflow runs `scripts/send-daily-updates.mjs`, which emails that day's updates (plus employees who didn't submit) to `info@adnsemicon.com` and deletes those `dailyUpdates` documents. Only after the email succeeds and the updates are cleared does the next calendar day's reporting window open; it remains open until 9:00 PM. If sending fails, submissions remain closed and the workflow can be re-run manually.
 
 Add these GitHub repository secrets (**Settings → Secrets and variables → Actions**):
 

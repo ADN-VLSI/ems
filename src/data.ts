@@ -140,8 +140,45 @@ export function dhakaDateParts(now = new Date()): { date: string; hour: number }
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
-export function dailyUpdatesOpen(now = new Date()): boolean {
+export type DailyUpdateControl = {
+  collectingDate: string;
+  accepting: boolean;
+  acceptingUntil: Date;
+};
+
+export function dailyUpdatesOpen(now = new Date(), control?: DailyUpdateControl): boolean {
+  if (control) return control.accepting && now < control.acceptingUntil;
   return dhakaDateParts(now).hour < 21;
+}
+
+export function listenToDailyUpdateControl(
+  next: (control: DailyUpdateControl | null) => void,
+  fail: (error: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    doc(db, "system", "dailyUpdates"),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        next(null);
+        return;
+      }
+      const data = snapshot.data();
+      if (
+        typeof data.collectingDate !== "string" ||
+        typeof data.accepting !== "boolean" ||
+        typeof data.acceptingUntil?.toDate !== "function"
+      ) {
+        fail(new Error("Daily update collection status is invalid."));
+        return;
+      }
+      next({
+        collectingDate: data.collectingDate,
+        accepting: data.accepting,
+        acceptingUntil: data.acceptingUntil.toDate(),
+      });
+    },
+    fail,
+  );
 }
 
 export function listenToOwnDailyUpdate(
@@ -176,12 +213,13 @@ export function listenToAllDailyUpdates(
 export async function saveDailyUpdate(
   user: { uid: string; email: string; name: string },
   fields: DailyUpdateFields,
+  date: string,
 ): Promise<void> {
   await setDoc(doc(db, "dailyUpdates", user.uid), {
     employeeId: user.uid,
     employeeEmail: user.email,
     employeeName: user.name,
-    date: dhakaDateParts().date,
+    date,
     todaysTasks: fields.todaysTasks,
     suddenTasks: fields.suddenTasks,
     blockers: fields.blockers,

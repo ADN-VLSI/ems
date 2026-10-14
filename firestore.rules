@@ -187,10 +187,25 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Submissions close at 9:00 PM Asia/Dhaka (UTC+6, no DST) = 15:00-18:00 UTC.
-    function dailyWindowOpen() {
+    // The control document opens the next reporting day only after the email succeeds.
+    // Before the first email, submissions are open until 9:00 PM Asia/Dhaka.
+    function dailyCollectionOpen() {
+      let controlPath = /databases/$(database)/documents/system/dailyUpdates;
+      return exists(controlPath)
+        ? get(controlPath).data.accepting == true
+          && request.time < get(controlPath).data.acceptingUntil
+        : dailyWindowOpenBeforeFirstSend();
+    }
+
+    function dailyWindowOpenBeforeFirstSend() {
       let msOfDay = request.time.toMillis() % 86400000;
       return msOfDay < 54000000 || msOfDay >= 64800000;
+    }
+
+    function dailyCollectionDateMatches() {
+      let controlPath = /databases/$(database)/documents/system/dailyUpdates;
+      return !exists(controlPath)
+        || request.resource.data.date == get(controlPath).data.collectingDate;
     }
 
     function validBullets(items) {
@@ -226,11 +241,16 @@ service cloud.firestore {
 
       allow create, update: if isApprovedEmployee()
         && request.auth.uid == uid
-        && dailyWindowOpen()
+        && dailyCollectionOpen()
+        && dailyCollectionDateMatches()
         && validDailyUpdate(uid);
 
       allow delete: if isAdmin()
-        || (isApprovedEmployee() && request.auth.uid == uid && dailyWindowOpen());
+        || (isApprovedEmployee() && request.auth.uid == uid && dailyCollectionOpen());
+    }
+
+    match /system/{documentId} {
+      allow get: if documentId == 'dailyUpdates' && (isAdmin() || isApprovedEmployee());
     }
 
     match /concerns/{concernId} {

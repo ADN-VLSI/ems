@@ -1,5 +1,5 @@
 import { cert, initializeApp } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import nodemailer from "nodemailer";
 
 const RECIPIENT = process.env.DAILY_UPDATE_RECIPIENT || "info@adnsemicon.com";
@@ -19,15 +19,79 @@ function required(name) {
 const escapeHtml = (text) =>
   String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-const dhakaDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Dhaka" }).format(new Date());
+function dhakaDate(now) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Dhaka",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+      .formatToParts(now)
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function nextDate(date) {
+  const result = new Date(`${date}T00:00:00.000Z`);
+  result.setUTCDate(result.getUTCDate() + 1);
+  return result.toISOString().slice(0, 10);
+}
+
+function dhakaHour(now) {
+  return Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Dhaka",
+      hour: "2-digit",
+      hourCycle: "h23",
+    }).format(now),
+  );
+}
 
 initializeApp({ credential: cert(JSON.parse(required("FIREBASE_SERVICE_ACCOUNT"))) });
 const db = getFirestore();
+
+const now = new Date();
+const controlRef = db.collection("system").doc("dailyUpdates");
+let reportDate;
+await db.runTransaction(async (transaction) => {
+  const controlSnap = await transaction.get(controlRef);
+  if (!controlSnap.exists) {
+    if (dhakaHour(now) < 21) {
+      throw new Error("Daily updates are still being collected; the email runs at 9:00 PM Dhaka time.");
+    }
+    reportDate = dhakaDate(now);
+  } else {
+    const control = controlSnap.data();
+    if (
+      typeof control.collectingDate !== "string" ||
+      typeof control.accepting !== "boolean" ||
+      typeof control.acceptingUntil?.toDate !== "function"
+    ) {
+      throw new Error("Daily update collection status is invalid.");
+    }
+    if (control.accepting && now < control.acceptingUntil.toDate()) {
+      throw new Error("Daily updates are still being collected for the current reporting day.");
+    }
+    reportDate = control.collectingDate;
+  }
+  const cutoff = new Date(`${reportDate}T15:00:00.000Z`);
+  transaction.set(controlRef, {
+    collectingDate: reportDate,
+    accepting: false,
+    acceptingUntil: Timestamp.fromDate(cutoff),
+  });
+});
 
 const [updatesSnap, usersSnap] = await Promise.all([
   db.collection("dailyUpdates").get(),
   db.collection("users").where("status", "==", "approved").get(),
 ]);
+
+if (updatesSnap.docs.some((document) => document.data().date !== reportDate)) {
+  throw new Error(`Found daily updates outside the ${reportDate} reporting day; refusing to email or clear them.`);
+}
 
 const updates = updatesSnap.docs
   .map((d) => ({ ref: d.ref, ...d.data() }))
@@ -39,12 +103,12 @@ const missing = usersSnap.docs
   .map((u) => u.displayName || u.email)
   .sort((a, b) => a.localeCompare(b));
 
-const text = [`Daily updates for ${dhakaDate}`, ""];
-const html = [`<h2>Daily updates for ${dhakaDate}</h2>`];
+const text = [`Daily updates for ${reportDate}`, ""];
+const html = [`<h2>Daily updates for ${reportDate}</h2>`];
 
 if (!updates.length) {
-  text.push("No updates were submitted today.", "");
-  html.push("<p>No updates were submitted today.</p>");
+  text.push("No updates were submitted for this reporting day.", "");
+  html.push("<p>No updates were submitted for this reporting day.</p>");
 }
 
 for (const update of updates) {
@@ -77,7 +141,7 @@ const transport = nodemailer.createTransport({
 await transport.sendMail({
   from: process.env.SMTP_FROM || process.env.SMTP_USER,
   to: RECIPIENT,
-  subject: `Daily updates – ${dhakaDate}`,
+  subject: `Daily updates – ${reportDate}`,
   text: text.join("\n"),
   html: html.join("\n"),
 });
@@ -90,3 +154,11 @@ for (let i = 0; i < updates.length; i += 400) {
   await batch.commit();
 }
 console.log("Cleared daily updates");
+
+const nextCollectingDate = nextDate(reportDate);
+await controlRef.set({
+  collectingDate: nextCollectingDate,
+  accepting: true,
+  acceptingUntil: Timestamp.fromDate(new Date(`${nextCollectingDate}T15:00:00.000Z`)),
+});
+console.log(`Opened daily updates for ${nextCollectingDate}`);
