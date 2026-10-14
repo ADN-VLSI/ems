@@ -122,6 +122,18 @@ function formatDate(value?: string | null): string {
       }).format(date);
 }
 
+function attendanceStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    present: "Present",
+    late: "Late",
+    absent: "Absent",
+    leave: "Leave",
+    "annual-leave": "Annual Leave",
+    "sick-leave": "Sick Leave",
+  };
+  return labels[status] ?? status;
+}
+
 function OverviewClock() {
   const [now, setNow] = useState(() => new Date());
 
@@ -221,15 +233,11 @@ function StatusPill({ status }: { status: string }) {
     pending: "Pending",
     approved: "Approved",
     rejected: "Declined",
-    present: "Present",
-    late: "Late",
-    absent: "Absent",
-    leave: "Leave",
   };
   return (
     <span className={`status-pill status-${status}`}>
       <span className="status-dot" />
-      {labels[status] ?? status}
+      {labels[status] ?? attendanceStatusLabel(status)}
     </span>
   );
 }
@@ -946,7 +954,7 @@ function App() {
       ]);
       setNotice({
         kind: "success",
-        message: `${employee.displayName} marked ${status} for ${formatDate(date)}.`,
+        message: `${employee.displayName} marked ${attendanceStatusLabel(status)} for ${formatDate(date)}.`,
       });
       return true;
     } catch (actionError) {
@@ -957,7 +965,7 @@ function App() {
 
   async function editAttendanceRecord(record: AttendanceRecord) {
     const status = window.prompt(
-      "Attendance status (present, late, absent, or leave)",
+      "Attendance status (present, late, absent, annual-leave, sick-leave, or leave)",
       record.status,
     );
     if (status === null) return;
@@ -965,9 +973,11 @@ function App() {
       status !== "present" &&
       status !== "late" &&
       status !== "absent" &&
-      status !== "leave"
+      status !== "leave" &&
+      status !== "annual-leave" &&
+      status !== "sick-leave"
     ) {
-      setNotice({ kind: "error", message: "Choose present, late, absent, or leave." });
+      setNotice({ kind: "error", message: "Choose a valid attendance status." });
       return;
     }
     const note = window.prompt("Attendance note (up to 240 characters)", record.note);
@@ -1919,7 +1929,7 @@ function Overview({
                 </div>
                 <small>
                   {todayAttendanceRecord
-                    ? `Recorded as ${todayAttendanceRecord.status}.`
+                    ? `Recorded as ${attendanceStatusLabel(todayAttendanceRecord.status)}.`
                     : "Your administrator has not recorded it yet."}
                 </small>
               </article>
@@ -2684,9 +2694,6 @@ function AttendancePage({
 }) {
   const [search, setSearch] = useState("");
   const [rosterSearch, setRosterSearch] = useState("");
-  const [rosterStatusFilter, setRosterStatusFilter] = useState<AttendanceStatus | "unmarked" | "all">("all");
-  const [rosterSort, setRosterSort] = useState<"employee" | "status">("employee");
-  const [rosterSortDirection, setRosterSortDirection] = useState<SortDirection>("asc");
   const [recordStatusFilter, setRecordStatusFilter] = useState<AttendanceStatus | "all">("all");
   const [recordFromDate, setRecordFromDate] = useState("");
   const [recordToDate, setRecordToDate] = useState("");
@@ -2696,6 +2703,7 @@ function AttendancePage({
   const [notesByEmployee, setNotesByEmployee] = useState<Record<string, string>>({});
   const [savingEmployeeIds, setSavingEmployeeIds] = useState<Set<string>>(() => new Set());
   const [openStatusMenuId, setOpenStatusMenuId] = useState<string | null>(null);
+  const [openStatusMenuSide, setOpenStatusMenuSide] = useState<"left" | "right">("right");
   const attendanceForDate = useMemo(
     () =>
       new Map(
@@ -2705,6 +2713,19 @@ function AttendancePage({
       ),
     [attendanceDate, records],
   );
+  const approvedLeavesByEmployee = useMemo(() => {
+    const leavesByEmployee = new Map<string, LeaveRequest[]>();
+    leaveRequests.forEach((request) => {
+      if (request.status !== "approved") return;
+      const requests = leavesByEmployee.get(request.employeeId) ?? [];
+      requests.push(request);
+      leavesByEmployee.set(request.employeeId, requests);
+    });
+    leavesByEmployee.forEach((requests) =>
+      requests.sort((left, right) => left.startDate.localeCompare(right.startDate)),
+    );
+    return leavesByEmployee;
+  }, [leaveRequests]);
   const filteredRecords = useMemo(() => {
     const term = search.trim().toLowerCase();
     return records.filter((record) => {
@@ -2712,7 +2733,8 @@ function AttendancePage({
         !term ||
         record.employeeName.toLowerCase().includes(term) ||
         record.date.includes(term) ||
-        record.status.includes(term);
+        record.status.includes(term) ||
+        attendanceStatusLabel(record.status).toLowerCase().includes(term);
       const matchesStatus = recordStatusFilter === "all" || record.status === recordStatusFilter;
       const matchesFromDate = !recordFromDate || record.date >= recordFromDate;
       const matchesToDate = !recordToDate || record.date <= recordToDate;
@@ -2736,34 +2758,10 @@ function AttendancePage({
   const filteredEmployees = useMemo(() => {
     const term = rosterSearch.trim().toLowerCase();
     return employees.filter(
-      (employee) => {
-        const status = attendanceForDate.get(employee.uid)?.status;
-        const matchesStatus =
-          rosterStatusFilter === "all" ||
-          (rosterStatusFilter === "unmarked" ? !status : status === rosterStatusFilter);
-        return (
-          matchesStatus &&
-          (!term || `${employee.displayName} ${employee.email}`.toLowerCase().includes(term))
-        );
-      },
+      (employee) =>
+        !term || `${employee.displayName} ${employee.email}`.toLowerCase().includes(term),
     );
-  }, [employees, attendanceForDate, rosterSearch, rosterStatusFilter]);
-  const sortedEmployees = useMemo(
-    () =>
-      sortItems(
-        filteredEmployees,
-        (employee) => {
-          if (rosterSort === "employee") return employee.displayName;
-          return attendanceForDate.get(employee.uid)?.status ?? "unmarked";
-        },
-        rosterSortDirection,
-      ),
-    [filteredEmployees, attendanceForDate, rosterSort, rosterSortDirection],
-  );
-  const rosterPagination = usePagination(
-    sortedEmployees,
-    `${attendanceDate}:${rosterSearch}:${rosterStatusFilter}:${rosterSort}:${rosterSortDirection}`,
-  );
+  }, [employees, rosterSearch]);
   const recordPagination = usePagination(
     sortedRecords,
     `${search}:${recordStatusFilter}:${recordFromDate}:${recordToDate}:${recordSort}:${recordSortDirection}`,
@@ -2773,6 +2771,7 @@ function AttendancePage({
     employee: EmployeeProfile,
     status: AttendanceStatus,
   ) {
+    if (savingEmployeeIds.has(employee.uid)) return;
     setSavingEmployeeIds((current) => new Set(current).add(employee.uid));
     try {
       await onSetStatus(
@@ -2788,6 +2787,12 @@ function AttendancePage({
         return next;
       });
     }
+  }
+  function openStatusMenu(employeeId: string, element: HTMLElement) {
+    const bounds = element.getBoundingClientRect();
+    const hasRoomOnRight = window.innerWidth - bounds.right >= 280;
+    setOpenStatusMenuSide(hasRoomOnRight || bounds.left < 280 ? "right" : "left");
+    setOpenStatusMenuId(employeeId);
   }
 
   return (
@@ -2852,141 +2857,136 @@ function AttendancePage({
                     onChange={(event) => setRosterSearch(event.target.value)}
                   />
                 </label>
-                <label className="filter-select">
-                  <span className="sr-only">Filter attendance roster by status</span>
-                  <select
-                    aria-label="Filter attendance roster by status"
-                    value={rosterStatusFilter}
-                    onChange={(event) =>
-                      setRosterStatusFilter(event.target.value as AttendanceStatus | "unmarked" | "all")
-                    }
-                  >
-                    <option value="all">All statuses</option>
-                    <option value="unmarked">Not marked</option>
-                    <option value="present">Present</option>
-                    <option value="late">Late</option>
-                    <option value="absent">Absent</option>
-                    <option value="leave">Leave</option>
-                  </select>
-                </label>
-                <SortControls
-                  value={rosterSort}
-                  options={[
-                    { value: "employee", label: "Employee" },
-                    { value: "status", label: "Status" },
-                  ]}
-                  direction={rosterSortDirection}
-                  onChange={(value) => setRosterSort(value as typeof rosterSort)}
-                  onToggleDirection={() =>
-                    setRosterSortDirection((direction) => direction === "asc" ? "desc" : "asc")
-                  }
-                />
                 <span>{filteredEmployees.length} employees</span>
               </div>
               {filteredEmployees.length ? (
-                <>
-                  <div className="table-wrap attendance-roster-wrap">
-                    <table className="attendance-roster-table">
-                      <thead>
-                        <tr><th>EMPLOYEE</th><th>STATUS</th><th>NOTE <span className="optional-label">OPTIONAL</span></th></tr>
-                      </thead>
-                      <tbody>
-                        {rosterPagination.items.map((employee) => {
-                          const existing = attendanceForDate.get(employee.uid);
-                          const status = existing?.status;
-                          const isSaving = savingEmployeeIds.has(employee.uid);
-                          return (
-                            <tr key={employee.uid}>
-                          <td>
-                            <div className="attendance-roster-person">
-                              <div
-                                className={`attendance-roster-avatar-picker${openStatusMenuId === employee.uid ? " attendance-roster-avatar-picker-open" : ""}`}
-                                onMouseEnter={() => setOpenStatusMenuId(employee.uid)}
-                                onMouseLeave={() => setOpenStatusMenuId(null)}
-                                onFocus={() => setOpenStatusMenuId(employee.uid)}
-                                onBlur={(event) => {
-                                  if (!event.currentTarget.contains(event.relatedTarget)) {
-                                    setOpenStatusMenuId(null);
-                                  }
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  className="attendance-roster-avatar-button"
-                                  aria-label={`Choose attendance status for ${employee.displayName}`}
-                                  aria-expanded={openStatusMenuId === employee.uid}
-                                  aria-controls={`attendance-quick-status-${employee.uid}`}
-                                  onClick={() =>
-                                    setOpenStatusMenuId((current) =>
-                                      current === employee.uid ? null : employee.uid,
-                                    )
-                                  }
-                                >
-                                  <EmployeeAvatar
-                                    name={employee.displayName}
-                                    photoURL={employee.photoURL}
-                                  />
-                                </button>
-                                <div
-                                  className="attendance-roster-quick-status"
-                                  id={`attendance-quick-status-${employee.uid}`}
-                                  role="group"
-                                  aria-label={`Attendance status for ${employee.displayName}`}
-                                >
-                                  {isSaving ? (
-                                    <span className="attendance-roster-saving">Saving…</span>
-                                  ) : ([
-                                    ["present", "Present"],
-                                    ["late", "Late"],
-                                    ["absent", "Absent"],
-                                    ["leave", "Leave"],
-                                  ] as const).map(([value, label]) => (
-                                    <button
-                                      type="button"
-                                      className={`attendance-quick-status attendance-quick-status-${value}`}
-                                      key={value}
-                                      disabled={isSaving}
-                                      aria-pressed={status === value}
-                                      onClick={() => void chooseAttendanceStatus(employee, value)}
-                                    >
-                                      {label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <span><strong>{employee.displayName}</strong></span>
+                <div className="attendance-roster-grid" role="list" aria-label="Employee attendance roster">
+                  {filteredEmployees.map((employee) => {
+                    const existing = attendanceForDate.get(employee.uid);
+                    const status = existing?.status;
+                    const isSaving = savingEmployeeIds.has(employee.uid);
+                    const isOpen = openStatusMenuId === employee.uid;
+                    const approvedLeaves = approvedLeavesByEmployee.get(employee.uid) ?? [];
+                    const leaveForDate = approvedLeaves.find(
+                      (request) =>
+                        request.startDate <= attendanceDate &&
+                        request.endDate >= attendanceDate &&
+                        (request.type === "Annual leave" || request.type === "Sick leave"),
+                    );
+                    const leaveStatus = leaveForDate
+                      ? leaveForDate.type === "Annual leave"
+                        ? "annual-leave"
+                        : "sick-leave"
+                      : null;
+                    const displayStatus = status === "leave"
+                      ? leaveStatus ?? status
+                      : status;
+                    const upcomingAnnualLeave = approvedLeaves.find(
+                      (request) =>
+                        request.type === "Annual leave" && request.endDate >= today,
+                    );
+                    return (
+                      <div
+                        className={`attendance-roster-person${isOpen ? ` attendance-roster-person-open attendance-roster-person-menu-${openStatusMenuSide}` : ""}`}
+                        key={employee.uid}
+                        role="listitem"
+                        onMouseEnter={(event) => openStatusMenu(employee.uid, event.currentTarget)}
+                        onMouseLeave={() => setOpenStatusMenuId(null)}
+                        onFocus={(event) => openStatusMenu(employee.uid, event.currentTarget)}
+                        onBlur={(event) => {
+                          if (
+                            !isSaving &&
+                            !event.currentTarget.contains(event.relatedTarget)
+                          ) {
+                            setOpenStatusMenuId(null);
+                          }
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className={`attendance-roster-avatar-button attendance-roster-status-${displayStatus ?? "unmarked"}`}
+                          aria-label={`${employee.displayName}: ${attendanceStatusLabel(displayStatus ?? "Not marked")}. Choose attendance status`}
+                          title={`${employee.displayName} · ${attendanceStatusLabel(displayStatus ?? "Not marked")}`}
+                          aria-expanded={isOpen}
+                          aria-controls={`attendance-quick-status-${employee.uid}`}
+                          onClick={() =>
+                            setOpenStatusMenuId((current) =>
+                              current === employee.uid ? null : employee.uid,
+                            )
+                          }
+                        >
+                          <EmployeeAvatar
+                            name={employee.displayName}
+                            photoURL={employee.photoURL}
+                          />
+                        </button>
+                        <div
+                          className="attendance-roster-quick-status"
+                          id={`attendance-quick-status-${employee.uid}`}
+                          role="group"
+                          aria-label={`Attendance status for ${employee.displayName}`}
+                        >
+                          <div className="attendance-roster-hover-heading">
+                            <strong>{employee.displayName}</strong>
+                            {isSaving ? (
+                              <span className="attendance-roster-saving">Saving…</span>
+                            ) : displayStatus ? (
+                              <StatusPill status={displayStatus} />
+                            ) : (
+                              <span className="attendance-roster-unmarked">Not marked</span>
+                            )}
+                          </div>
+                          {upcomingAnnualLeave && (
+                            <div className="attendance-roster-leave-booking attendance-roster-leave-booking-active">
+                              <span>Annual leave booked</span>
+                              <strong>
+                                {formatDate(upcomingAnnualLeave.startDate)}
+                                {upcomingAnnualLeave.startDate === upcomingAnnualLeave.endDate
+                                  ? ""
+                                  : ` – ${formatDate(upcomingAnnualLeave.endDate)}`}
+                              </strong>
                             </div>
-                          </td>
-                          <td>
-                            {isSaving
-                              ? <span className="attendance-roster-saving">Saving…</span>
-                              : status
-                              ? <StatusPill status={status} />
-                              : <span className="attendance-roster-unmarked">Not marked</span>}
-                          </td>
-                          <td>
-                            <input
-                              className="attendance-roster-note"
-                              maxLength={240}
-                              value={notesByEmployee[employee.uid] ?? existing?.note ?? ""}
-                              onChange={(event) =>
-                                setNotesByEmployee((current) => ({
-                                  ...current,
-                                  [employee.uid]: event.target.value,
-                                }))
-                              }
-                              placeholder="Add a note…"
-                              aria-label={`Optional attendance note for ${employee.displayName}; click a status to save`}
-                            />
-                          </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  <PaginationControls {...rosterPagination} />
-                </>
+                          )}
+                          <div className="attendance-roster-status-options">
+                            {([
+                              ["present", "Present"],
+                              ["late", "Late"],
+                              ["absent", "Absent"],
+                              ["annual-leave", "Annual Leave"],
+                              ["sick-leave", "Sick Leave"],
+                            ] as const).map(([value, label]) => (
+                              <button
+                                type="button"
+                                className={`attendance-quick-status attendance-quick-status-${value}`}
+                                key={value}
+                                aria-disabled={isSaving}
+                                aria-pressed={
+                                  status === value || (status === "leave" && leaveStatus === value)
+                                }
+                                onClick={() => void chooseAttendanceStatus(employee, value)}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <input
+                            className="attendance-roster-note"
+                            maxLength={240}
+                            value={notesByEmployee[employee.uid] ?? existing?.note ?? ""}
+                            onChange={(event) =>
+                              setNotesByEmployee((current) => ({
+                                ...current,
+                                [employee.uid]: event.target.value,
+                              }))
+                            }
+                            placeholder="Add a note…"
+                            aria-label={`Optional attendance note for ${employee.displayName}; click a status to save`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
                 <EmptyState icon={<Search size={20} />} title="No matching employees" text="Try a different search." />
               )}
@@ -3029,6 +3029,8 @@ function AttendancePage({
                 <option value="late">Late</option>
                 <option value="absent">Absent</option>
                 <option value="leave">Leave</option>
+                <option value="annual-leave">Annual Leave</option>
+                <option value="sick-leave">Sick Leave</option>
               </select>
             </label>
             <label className="attendance-date-filter">
@@ -3369,11 +3371,7 @@ function EmployeeAttendanceHeatmap({
     );
     const statusByDate: Record<string, "present" | "late" | "absent" | "annual-leave" | "sick-leave" | "leave"> = {};
     attendance.forEach((record) => {
-      if (record.date <= today && record.status !== "leave") {
-        statusByDate[record.date] = record.status;
-      } else if (record.date <= today && record.status === "leave") {
-        statusByDate[record.date] = "leave";
-      }
+      if (record.date <= today) statusByDate[record.date] = record.status;
     });
     leaveRequests.forEach((request) => {
       if (request.status !== "approved") return;

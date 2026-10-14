@@ -196,7 +196,9 @@ service cloud.firestore {
         && request.resource.data.employeeName is string
         && request.resource.data.date is string
         && request.resource.data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
-        && request.resource.data.status in ['present', 'late', 'absent', 'leave']
+        && request.resource.data.status in [
+          'present', 'late', 'absent', 'leave', 'annual-leave', 'sick-leave'
+        ]
         && request.resource.data.note is string
         && request.resource.data.note.size() <= 240
         && request.resource.data.recordedAt == request.time

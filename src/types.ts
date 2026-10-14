@@ -2,7 +2,13 @@ import type { Timestamp } from "firebase/firestore";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type LeaveStatus = "pending" | "approved" | "rejected";
-export type AttendanceStatus = "present" | "late" | "absent" | "leave";
+export type AttendanceStatus =
+  | "present"
+  | "late"
+  | "absent"
+  | "leave"
+  | "annual-leave"
+  | "sick-leave";
 export type LeaveType = "Annual leave" | "Sick leave";
 
 export interface LeaveBalance {

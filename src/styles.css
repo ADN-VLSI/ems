@@ -1460,6 +1460,16 @@ a {
   color: #7257aa;
 }
 
+.status-annual-leave {
+  background: #e6f5ff;
+  color: #2678a4;
+}
+
+.status-sick-leave {
+  background: #f0edfa;
+  color: #7257aa;
+}
+
 .status-late {
   background: #fff5e2;
   color: #ae7419;
@@ -1877,81 +1887,97 @@ tbody tr:last-child td {
   width: min(230px, 100%);
 }
 
-.attendance-roster-controls .field input,
-.attendance-roster-table select {
+.attendance-roster-controls .field input {
   min-height: 38px;
 }
 
-.attendance-roster-table {
-  min-width: 620px;
-}
-
-.attendance-roster-table th:first-child {
-  width: 45%;
-}
-
 .attendance-roster-person {
-  display: flex;
-  min-width: 150px;
-  align-items: center;
-  gap: 9px;
-}
-
-.attendance-roster-person > span {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.attendance-roster-person strong {
-  overflow: hidden;
-  color: #435064;
-  font-size: 13.5px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.attendance-roster-person small {
-  overflow: hidden;
-  color: #9aa3af;
-  font-size: 12.15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.attendance-roster-avatar-picker {
   position: relative;
   z-index: 1;
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
 }
 
-.attendance-roster-avatar-picker:hover,
-.attendance-roster-avatar-picker:focus-within,
-.attendance-roster-avatar-picker-open {
-  z-index: 20;
+.attendance-roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 78px);
+  gap: 24px 22px;
+  width: 100%;
+  max-width: 100%;
+  padding: 8px 6px 18px;
+  overflow: visible;
+}
+
+.attendance-roster-person::after {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  z-index: 1;
+  width: 9px;
+  height: 160px;
+  transform: translateY(-50%);
+  content: "";
+}
+
+.attendance-roster-person:hover,
+.attendance-roster-person:focus-within,
+.attendance-roster-person-open {
+  z-index: 30;
+}
+
+.attendance-roster-person:hover::after,
+.attendance-roster-person:focus-within::after,
+.attendance-roster-person-open::after {
+  display: block;
 }
 
 .attendance-roster-avatar-button {
-  display: inline-grid;
-  flex: 0 0 auto;
-  padding: 0;
-  border: 0;
+  display: grid;
+  width: 74px;
+  height: 74px;
+  place-items: center;
+  padding: 4px;
+  border: 5px solid #dfe3e8;
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
 }
 
 .attendance-roster-avatar-button .avatar {
-  width: 31px;
-  height: 31px;
-  font-size: 12.15px;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  color: #536a91;
+  font-size: 21px;
+}
+
+.attendance-roster-avatar-button.attendance-roster-status-present {
+  border-color: #7fb268;
+}
+
+.attendance-roster-avatar-button.attendance-roster-status-late {
+  border-color: #d9b64d;
+}
+
+.attendance-roster-avatar-button.attendance-roster-status-absent {
+  border-color: #bb5252;
+}
+
+.attendance-roster-avatar-button.attendance-roster-status-leave,
+.attendance-roster-avatar-button.attendance-roster-status-sick-leave {
+  border-color: #9872a8;
+}
+
+.attendance-roster-avatar-button.attendance-roster-status-annual-leave {
+  border-color: #688bc4;
 }
 
 .attendance-roster-avatar-button:focus-visible {
+  outline: 2px solid #475a78;
   outline-offset: 3px;
 }
 
@@ -1959,32 +1985,89 @@ tbody tr:last-child td {
   display: none;
   position: absolute;
   top: 50%;
-  left: calc(100% - 1px);
-  align-items: center;
-  gap: 4px;
-  width: max-content;
-  padding: 5px;
+  left: calc(100% + 9px);
+  width: 260px;
+  padding: 12px;
   transform: translateY(-50%);
   border: 1px solid #e5e9ef;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 5px 16px rgba(30, 44, 65, 0.16);
+  cursor: default;
 }
 
-.attendance-roster-avatar-picker:hover .attendance-roster-quick-status,
-.attendance-roster-avatar-picker:focus-within .attendance-roster-quick-status,
-.attendance-roster-avatar-picker-open .attendance-roster-quick-status {
+.attendance-roster-person-menu-left .attendance-roster-quick-status {
+  right: calc(100% + 9px);
+  left: auto;
+}
+
+.attendance-roster-person-menu-left::after {
+  right: 100%;
+  left: auto;
+}
+
+.attendance-roster-person:hover .attendance-roster-quick-status,
+.attendance-roster-person:focus-within .attendance-roster-quick-status,
+.attendance-roster-person-open .attendance-roster-quick-status {
+  display: grid;
+  gap: 9px;
+}
+
+.attendance-roster-hover-heading {
   display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.attendance-roster-hover-heading strong {
+  overflow: hidden;
+  color: #435064;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attendance-roster-leave-booking {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  background: #f4f6f9;
+  color: #778294;
+  font-size: 10.8px;
+}
+
+.attendance-roster-leave-booking span {
+  font-weight: 600;
+}
+
+.attendance-roster-leave-booking strong {
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.attendance-roster-leave-booking-active {
+  background: #eaf5fb;
+  color: #2678a4;
+}
+
+.attendance-roster-status-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
 }
 
 .attendance-quick-status {
-  min-height: 25px;
-  padding: 0 6px;
+  min-height: 29px;
+  padding: 0 8px;
   border: 1px solid #e6eaf0;
   border-radius: 999px;
   background: #fff;
   cursor: pointer;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -2005,7 +2088,11 @@ tbody tr:last-child td {
   color: #bd5555;
 }
 
-.attendance-quick-status-leave {
+.attendance-quick-status-annual-leave {
+  color: #2678a4;
+}
+
+.attendance-quick-status-sick-leave {
   color: #7257ae;
 }
 
@@ -2022,8 +2109,8 @@ tbody tr:last-child td {
 
 .attendance-roster-note {
   width: 100%;
-  min-width: 180px;
-  min-height: 36px;
+  min-width: 0;
+  min-height: 34px;
   padding: 0 9px;
   border: 1px solid #e2e7ed;
   border-radius: 6px;
@@ -2805,6 +2892,26 @@ tbody tr:last-child td {
 }
 
 @media (max-width: 700px) {
+  .attendance-roster-quick-status {
+    top: calc(100% + 8px);
+    left: 0;
+    width: min(260px, calc(100vw - 120px));
+    transform: none;
+  }
+
+  .attendance-roster-person::after {
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 8px;
+    transform: none;
+  }
+
+  .attendance-roster-person-menu-left .attendance-roster-quick-status {
+    right: auto;
+    left: 0;
+  }
+
   .leave-overview-grid {
     grid-template-columns: 1fr;
   }
