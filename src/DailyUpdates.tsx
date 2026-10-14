@@ -346,19 +346,30 @@ function AdminView({ onNotice }: Props) {
         </div>
       </div>
       {updates.length === 0 && <p className="panel-note">No updates submitted yet.</p>}
-      {updates.map((update) => (
-        <article className="daily-section" key={update.id}>
-          <h3>
-            {update.employeeName} <small>{update.employeeEmail}</small>
-          </h3>
-          {sections.map(({ key, title }) => (
-            <div key={key}>
-              <strong>{title}</strong>
-              <BulletList items={update[key]} />
-            </div>
-          ))}
-        </article>
-      ))}
+      {updates.length > 0 && (
+        <div className="table-wrap">
+          <table className="daily-updates-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                {sections.map(({ title }) => <th key={title}>{title}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {updates.map((update) => (
+                <tr key={update.id}>
+                  <td>{update.employeeName}</td>
+                  <td>{update.employeeEmail}</td>
+                  {sections.map(({ key }) => (
+                    <td key={key}><BulletList items={update[key]} /></td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

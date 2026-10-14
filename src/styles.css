@@ -2986,6 +2986,14 @@ tbody tr:last-child td {
   font-weight: 400;
 }
 
+.daily-updates-table {
+  min-width: 1000px;
+}
+
+.daily-updates-table td {
+  vertical-align: top;
+}
+
 .bullet-row {
   display: flex;
   align-items: center;

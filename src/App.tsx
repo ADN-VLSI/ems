@@ -76,6 +76,7 @@ import type {
 type Notice = { kind: "success" | "error"; message: string };
 type EmployeeProfileDetails = {
   displayName: string;
+  officialEmail: string;
   githubId: string;
   trackRecords: TrackRecord[];
   phone: string;
@@ -593,6 +594,7 @@ function App() {
   ) {
     const values = {
       displayName: details.displayName.trim(),
+      officialEmail: details.officialEmail.trim(),
       githubId: details.githubId.trim(),
       trackRecords: details.trackRecords.map((record) => ({
         role: record.role.trim(),
@@ -1882,6 +1884,7 @@ function EmployeeDetailsPanel({ profile }: { profile: EmployeeProfile }) {
   const details = [
     { label: "Full name", value: profile.displayName },
     { label: "Email", value: profile.email },
+    { label: "Official email", value: profile.officialEmail },
     { label: "Phone number", value: profile.phone },
     { label: "GitHub ID", value: profile.githubId },
   ];
@@ -2873,6 +2876,7 @@ function EmployeeProfileDetailsPanel({
   onClose: () => void;
 }) {
   const [displayName, setDisplayName] = useState(employee.displayName);
+  const [officialEmail, setOfficialEmail] = useState(employee.officialEmail ?? "");
   const [githubId, setGithubId] = useState(employee.githubId ?? "");
   const [trackRecords, setTrackRecords] = useState<TrackRecord[]>(
     employee.trackRecords ?? [],
@@ -2884,7 +2888,7 @@ function EmployeeProfileDetailsPanel({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(employee, { displayName, githubId, trackRecords, phone });
+      await onSave(employee, { displayName, officialEmail, githubId, trackRecords, phone });
     } finally {
       setSaving(false);
     }
@@ -2912,6 +2916,16 @@ function EmployeeProfileDetailsPanel({
         <label className="field">
           Email
           <input value={employee.email} disabled />
+        </label>
+        <label className="field">
+          Official email
+          <input
+            type="email"
+            maxLength={254}
+            value={officialEmail}
+            onChange={(event) => setOfficialEmail(event.target.value)}
+            placeholder="name@company.com"
+          />
         </label>
         <label className="field">
           GitHub ID

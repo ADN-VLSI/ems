@@ -9,6 +9,11 @@ const SECTIONS = [
   ["blockers", "Blockers"],
   ["plans", "Plans Going Forward"],
 ];
+const TABLE_COLUMNS = [
+  ["employeeName", "Name"],
+  ["employeeEmail", "Email"],
+  ...SECTIONS,
+];
 
 function required(name) {
   const value = process.env[name];
@@ -58,6 +63,40 @@ function renderUpdate(update) {
     );
   }
   return { text: text.join("\n"), html: html.join("\n") };
+}
+
+function renderAdminTable(updates) {
+  const rows = updates.map((update) =>
+    TABLE_COLUMNS.map(([key]) => {
+      const value = update[key];
+      return Array.isArray(value) ? (value.length ? value.join(" • ") : "None") : String(value ?? "");
+    }),
+  );
+  const text = [
+    `| ${TABLE_COLUMNS.map(([, title]) => title).join(" | ")} |`,
+    `| ${TABLE_COLUMNS.map(() => "---").join(" | ")} |`,
+    ...rows.map((row) => `| ${row.join(" | ")} |`),
+  ].join("\n");
+  const html = [
+    "<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\">",
+    `<thead><tr>${TABLE_COLUMNS.map(([, title]) => `<th>${escapeHtml(title)}</th>`).join("")}</tr></thead>`,
+    `<tbody>${updates
+      .map(
+        (update) =>
+          `<tr>${TABLE_COLUMNS.map(([key]) => {
+            const value = update[key];
+            const content = Array.isArray(value)
+              ? value.length
+                ? value.map((item) => `<div>${escapeHtml(item)}</div>`).join("")
+                : "None"
+              : String(value ?? "");
+            return `<td>${Array.isArray(value) ? content : escapeHtml(content)}</td>`;
+          }).join("")}</tr>`,
+      )
+      .join("")}</tbody>`,
+    "</table>",
+  ].join("");
+  return { text, html };
 }
 
 function dhakaDate(now) {
@@ -154,12 +193,10 @@ const html = [`<h2>Daily updates for ${reportDate}</h2>`];
 if (!updates.length) {
   text.push("No updates were submitted for this reporting day.", "");
   html.push("<p>No updates were submitted for this reporting day.</p>");
-}
-
-for (const update of updates) {
-  const rendered = renderUpdate(update);
-  text.push(rendered.text, "");
-  html.push(rendered.html);
+} else {
+  const table = renderAdminTable(updates);
+  text.push(table.text, "");
+  html.push(table.html);
 }
 
 if (missing.length) {
@@ -195,9 +232,12 @@ console.log(`Sent ${updates.length} update(s) to ${RECIPIENT}`);
 
 for (const update of updates) {
   const rendered = renderUpdate(update);
+  const profile = usersSnap.docs.find((document) => document.id === update.employeeId)?.data();
+  const officialEmail =
+    typeof profile?.officialEmail === "string" ? profile.officialEmail.trim() : "";
   await sendEmail({
     from,
-    to: update.employeeEmail,
+    to: officialEmail || update.employeeEmail,
     subject: `Your daily update – ${reportDate}`,
     text: [`Your daily update for ${reportDate}`, "", rendered.text].join("\n"),
     html: [`<h2>Your daily update for ${reportDate}</h2>`, rendered.html].join("\n"),

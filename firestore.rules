@@ -77,11 +77,17 @@ service cloud.firestore {
           )
           || (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'displayName', 'githubId', 'trackRecords', 'phone', 'updatedAt'
+              'displayName', 'officialEmail', 'githubId', 'trackRecords', 'phone', 'updatedAt'
             ])
             && request.resource.data.displayName is string
             && request.resource.data.displayName.size() > 0
             && request.resource.data.displayName.size() <= 120
+            && request.resource.data.officialEmail is string
+            && request.resource.data.officialEmail.size() <= 254
+            && (
+              request.resource.data.officialEmail == ''
+              || request.resource.data.officialEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+            )
             && request.resource.data.githubId is string
             && request.resource.data.githubId.size() <= 39
             && request.resource.data.trackRecords is list
