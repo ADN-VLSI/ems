@@ -1506,36 +1506,6 @@ function Overview({
         </>
       ) : (
         <>
-          <div className="stat-grid stat-grid-employee">
-            <StatCard
-              icon={<CalendarDays size={18} />}
-              label="Leave requests"
-              value={requests.length}
-              hint="Total requests"
-              tone="blue"
-            />
-            <StatCard
-              icon={<Clock3 size={18} />}
-              label="Awaiting a decision"
-              value={requests.filter((request) => request.status === "pending").length}
-              hint="Awaiting a decision"
-              tone="amber"
-            />
-            <StatCard
-              icon={<CheckCircle2 size={18} />}
-              label="Approved requests"
-              value={requests.filter((request) => request.status === "approved").length}
-              hint="Approved requests"
-              tone="green"
-            />
-            <StatCard
-              icon={<CalendarCheck2 size={18} />}
-              label="Attendance entries"
-              value={attendance.length}
-              hint="Recorded attendance"
-              tone="violet"
-            />
-          </div>
           <section className="panel leave-overview-panel">
             <PanelHeading
               title="Your leave and attendance"
