@@ -10,7 +10,7 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 - Employees can view attendance; only the administrator can add or change attendance records.
 - Approved employees can view their own profile details in the My profile section, including phone, GitHub ID, and track records.
 - Administrators can edit employee display names and leave requests, and can edit or delete leave and attendance records. Deleting an employee profile also deletes their associated leave and attendance records, but does not delete their Google sign-in account.
-- The notice board appears first in the overview and has its own navigation section. Administrators can publish and manage notices there. Employee profiles include editable display name, GitHub ID, track records, and phone details.
+- The notice board has its own navigation section. It appears below the daily update summary in the employee overview and is omitted from the admin overview. Administrators can publish and manage notices in its dedicated section. Employee profiles include editable display name, GitHub ID, track records, and phone details.
 - Firestore security rules enforce these permissions independently of the UI.
 
 ## Daily updates

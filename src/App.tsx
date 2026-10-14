@@ -26,7 +26,6 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -992,14 +991,6 @@ function App() {
             <X size={18} />
           </button>
         </div>
-        <div className="workspace-chip">
-          <span className="workspace-avatar">A</span>
-          <span>
-            <strong>ADN Semiconductors</strong>
-            <small>{isAdmin ? "Administrator" : "Employee workspace"}</small>
-          </span>
-          <ChevronDown size={15} />
-        </div>
         <span className="nav-label">WORKSPACE</span>
         <nav className="main-nav" aria-label="Main navigation">
           <NavButton
@@ -1073,16 +1064,6 @@ function App() {
           )}
         </nav>
         <div className="sidebar-bottom">
-          <div className="help-card">
-            <span className="help-icon"><ShieldCheck size={17} /></span>
-            <div>
-              <strong>Need a hand?</strong>
-              <span>Contact the ADN administrator.</span>
-            </div>
-            <a href="mailto:adn.semicon@gmail.com" aria-label="Email administrator">
-              <ArrowDownRight size={16} />
-            </a>
-          </div>
           <div className="sidebar-user">
             {user.photoURL ? (
               <img className="avatar avatar-photo" src={user.photoURL} alt="" />
@@ -1276,7 +1257,6 @@ function App() {
         </div>
         <footer className="page-footer">
           <span>ADN Semiconductors · Employee portal</span>
-          <a href="mailto:adn.semicon@gmail.com">Support <ArrowRight size={13} /></a>
         </footer>
       </main>
     </div>
@@ -1505,7 +1485,6 @@ function Overview({
       pending: Math.max(0, reserved - taken),
     };
   };
-  const latestRequests = requests.slice(0, 5);
   const firstName = user.displayName?.split(" ")[0] || "there";
   return (
     <div className={`overview-dashboard ${isAdmin ? "overview-dashboard-admin" : "overview-dashboard-employee"}`}>
@@ -1536,26 +1515,51 @@ function Overview({
           </div>
         </div>
         <div className="welcome-art" aria-hidden="true">
-          <div className="art-orbit art-orbit-one" />
-          <div className="art-orbit art-orbit-two" />
-          <div className="art-sun" />
-          <div className="art-line art-line-one" />
-          <div className="art-line art-line-two" />
-          <div className="art-dot art-dot-one" />
-          <div className="art-dot art-dot-two" />
+          <svg viewBox="0 0 260 200" focusable="false">
+            <defs>
+              <linearGradient id="overview-growth-area" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#e9d4ad" stopOpacity=".2" />
+                <stop offset="100%" stopColor="#e9d4ad" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="overview-growth-line" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor="#c4d9ec" />
+                <stop offset="100%" stopColor="#f1d6a5" />
+              </linearGradient>
+            </defs>
+            <path className="growth-grid" d="M12 57H250 M12 102H250 M12 147H250" />
+            <path
+              className="growth-area"
+              d="M12 157C55 151 67 116 105 127S159 74 187 88 224 37 250 30V184H12Z"
+            />
+            <path
+              className="growth-line"
+              d="M12 157C55 151 67 116 105 127S159 74 187 88 224 37 250 30"
+            />
+            <circle className="growth-milestone" cx="105" cy="127" r="3" />
+            <circle className="growth-milestone" cx="187" cy="88" r="3" />
+            <circle className="growth-milestone growth-milestone-final" cx="250" cy="30" r="4" />
+            <circle className="growth-traveler" r="4">
+              <animateMotion
+                dur="7s"
+                repeatCount="indefinite"
+                path="M12 157C55 151 67 116 105 127S159 74 187 88 224 37 250 30"
+              />
+            </circle>
+          </svg>
         </div>
         <span className="banner-date">{formatDate(today)}</span>
       </section>
 
-      <NoticeBoard
-        isAdmin={isAdmin}
-        boardNotices={boardNotices}
-        onSaveNotice={onSaveNotice}
-        onDeleteNotice={onDeleteNotice}
-      />
-
       {!isAdmin && profile?.status === "approved" && (
-        <DailyUpdateSummary userId={user.uid} onOpen={onOpenDaily} />
+        <>
+          <DailyUpdateSummary userId={user.uid} onOpen={onOpenDaily} />
+          <NoticeBoard
+            isAdmin={false}
+            boardNotices={boardNotices}
+            onSaveNotice={onSaveNotice}
+            onDeleteNotice={onDeleteNotice}
+          />
+        </>
       )}
 
       {isAdmin ? (
@@ -1759,48 +1763,6 @@ function Overview({
               </article>
             </div>
           </section>
-          <div className="dashboard-grid">
-            <section className="panel">
-              <PanelHeading
-                title="Your recent leave"
-                subtitle={`Latest ${Math.min(latestRequests.length, 5)} of ${requests.length} requests.`}
-                actionLabel="View all"
-                onAction={onOpenLeaves}
-              />
-              <LeaveTable requests={latestRequests} showEmployee={false} />
-            </section>
-            <section className="panel">
-              <PanelHeading
-                title="Your attendance"
-                subtitle={`Latest ${Math.min(attendance.length, 4)} of ${attendance.length} attendance records.`}
-                actionLabel="View all"
-                onAction={onOpenAttendance}
-              />
-              {attendance.slice(0, 4).length ? (
-                <div className="attendance-mini-list">
-                  {attendance.slice(0, 4).map((record) => (
-                    <div className="attendance-mini-row" key={record.id}>
-                      <div className="calendar-stamp">
-                        <span>{new Date(`${record.date}T00:00:00`).toLocaleDateString("en", { month: "short" })}</span>
-                        <strong>{new Date(`${record.date}T00:00:00`).getDate()}</strong>
-                      </div>
-                      <div className="compact-main">
-                        <strong>{formatDate(record.date)}</strong>
-                        <span>{record.note || "Attendance recorded"}</span>
-                      </div>
-                      <StatusPill status={record.status} />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <EmptyState
-                  icon={<CalendarCheck2 size={20} />}
-                  title="No attendance recorded yet"
-                  text="Your administrator records attendance for the team."
-                />
-              )}
-            </section>
-          </div>
         </>
       )}
     </div>
