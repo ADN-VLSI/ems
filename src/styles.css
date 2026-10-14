@@ -1159,6 +1159,17 @@ a {
   line-height: 1.45;
 }
 
+.bullet-view-details summary {
+  color: #526074;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bullet-view-details .bullet-view {
+  margin-top: 6px;
+}
+
 .text-link {
   display: inline-flex;
   flex: 0 0 auto;
@@ -2216,6 +2227,79 @@ tbody tr:last-child td {
   outline: 0;
 }
 
+.repeat-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.repeat-list-toolbar .search-field {
+  max-width: 330px;
+}
+
+.repeat-list-toolbar > span {
+  margin-left: auto;
+  color: #8993a1;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  color: #778294;
+  font-size: 12px;
+}
+
+.pagination-controls > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-controls .button {
+  min-height: 31px;
+  padding: 0 9px;
+  font-size: 11.5px;
+}
+
+.sort-direction-button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  white-space: nowrap;
+  font-size: 12.15px;
+}
+
+.attendance-date-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #8993a1;
+  font-size: 11px;
+}
+
+.attendance-date-filter input {
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #e4e8ed;
+  border-radius: 7px;
+  background: #fff;
+  color: #526074;
+  font-size: 12.15px;
+}
+
+.attendance-record-filters .attendance-date-filter {
+  width: 145px;
+}
+
 .filter-select select {
   min-width: 130px;
   min-height: 34px;
@@ -3052,6 +3136,19 @@ tbody tr:last-child td {
 
   .team-filters .filter-select {
     flex: 1;
+  }
+
+  .attendance-record-filters .attendance-date-filter {
+    flex: 1 1 130px;
+  }
+
+  .pagination-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .repeat-list-toolbar > span {
+    margin-left: 0;
   }
 
   .attendance-banner {

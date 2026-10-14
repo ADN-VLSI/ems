@@ -1,5 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Plus, Send, Trash2, X } from "lucide-react";
+import { Plus, Search, Send, Trash2, X } from "lucide-react";
+import {
+  PaginationControls,
+  SortControls,
+  sortItems,
+  usePagination,
+  type SortDirection,
+} from "./Pagination";
 import {
   dailyUpdatesOpen,
   deleteDailyUpdate,
@@ -46,6 +53,17 @@ function toDraft(update: DailyUpdate): Record<FieldKey, string[]> {
   const draft = emptyDraft();
   for (const { key } of sections) draft[key] = update[key].length ? [...update[key]] : [""];
   return draft;
+}
+
+function formatUpdateDate(value: string): string {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }).format(date);
 }
 
 function cleanItems(items: string[]): string[] {
@@ -95,15 +113,21 @@ function useDailyWindow(onNotice: Props["onNotice"]): { open: boolean; date: str
   return dailyWindow;
 }
 
-function BulletList({ items }: { items: string[] }) {
+function BulletList({ items, compact = false }: { items: string[]; compact?: boolean }) {
   if (!items.length) return <p className="panel-note">None</p>;
-  return (
+  const list = (
     <ul className="bullet-view">
       {items.map((item, index) => (
         <li key={index}>{item}</li>
       ))}
     </ul>
   );
+  return compact ? (
+    <details className="bullet-view-details">
+      <summary>{items.length} item{items.length === 1 ? "" : "s"}</summary>
+      {list}
+    </details>
+  ) : list;
 }
 
 export function DailyUpdatesPage(props: Props) {
@@ -326,6 +350,10 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
 
 function AdminView({ onNotice }: Props) {
   const [updates, setUpdates] = useState<DailyUpdate[]>([]);
+  const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "employee">("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   useEffect(
     () =>
@@ -333,6 +361,22 @@ function AdminView({ onNotice }: Props) {
         onNotice("error", `Could not load daily updates. ${errorText(error)}`),
       ),
     [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const filteredUpdates = updates.filter((update) => {
+    const term = search.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      `${update.employeeName} ${update.employeeEmail} ${update.date}`.toLowerCase().includes(term);
+    return matchesSearch && (!dateFilter || update.date === dateFilter);
+  });
+  const sortedUpdates = sortItems(
+    filteredUpdates,
+    (update) => sortBy === "date" ? update.date : update.employeeName,
+    sortDirection,
+  );
+  const pagination = usePagination(
+    sortedUpdates,
+    `${search}:${dateFilter}:${sortBy}:${sortDirection}`,
   );
 
   return (
@@ -347,28 +391,77 @@ function AdminView({ onNotice }: Props) {
       </div>
       {updates.length === 0 && <p className="panel-note">No updates submitted yet.</p>}
       {updates.length > 0 && (
-        <div className="table-wrap">
-          <table className="daily-updates-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                {sections.map(({ title }) => <th key={title}>{title}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {updates.map((update) => (
-                <tr key={update.id}>
-                  <td>{update.employeeName}</td>
-                  <td>{update.employeeEmail}</td>
-                  {sections.map(({ key }) => (
-                    <td key={key}><BulletList items={update[key]} /></td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className="repeat-list-toolbar">
+            <label className="search-field">
+              <Search size={16} />
+              <input
+                type="search"
+                value={search}
+                placeholder="Search employee updates"
+                aria-label="Search daily updates by employee"
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <label className="attendance-date-filter">
+              Date
+              <input
+                type="date"
+                aria-label="Filter daily updates by date"
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+              />
+            </label>
+            <SortControls
+              value={sortBy}
+              options={[
+                { value: "date", label: "Date" },
+                { value: "employee", label: "Employee" },
+              ]}
+              direction={sortDirection}
+              onChange={(value) => setSortBy(value as typeof sortBy)}
+              onToggleDirection={() =>
+                setSortDirection((direction) => direction === "asc" ? "desc" : "asc")
+              }
+            />
+            <span>{filteredUpdates.length} employee updates</span>
+          </div>
+          {filteredUpdates.length ? (
+            <>
+              <div className="table-wrap">
+                <table className="daily-updates-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Name</th>
+                      <th>Email</th>
+                      {sections.map(({ title }) => <th key={title}>{title}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagination.items.map((update) => (
+                      <tr key={update.id}>
+                        <td>{formatUpdateDate(update.date)}</td>
+                        <td>{update.employeeName}</td>
+                        <td>{update.employeeEmail}</td>
+                        {sections.map(({ key }) => (
+                          <td key={key}><BulletList items={update[key]} compact /></td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <PaginationControls {...pagination} />
+            </>
+          ) : (
+            <div className="empty-state">
+              <span className="empty-icon"><Search size={20} /></span>
+              <strong>No matching updates</strong>
+              <span>Try a different search.</span>
+            </div>
+          )}
+        </>
       )}
     </section>
   );

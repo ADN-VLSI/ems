@@ -57,6 +57,13 @@ import {
 } from "./data";
 import { ConcernsPage, needsAdminReply } from "./Concerns";
 import { DailyUpdatesPage, DailyUpdateSummary } from "./DailyUpdates";
+import {
+  PaginationControls,
+  SortControls,
+  sortItems,
+  usePagination,
+  type SortDirection,
+} from "./Pagination";
 import type {
   ApprovalStatus,
   AttendanceRecord,
@@ -1363,6 +1370,14 @@ function NoticeBoard({
   const [noticeTitle, setNoticeTitle] = useState("");
   const [noticeBody, setNoticeBody] = useState("");
   const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
+  const [noticeSearch, setNoticeSearch] = useState("");
+  const filteredNotices = useMemo(() => {
+    const term = noticeSearch.trim().toLowerCase();
+    return boardNotices.filter(
+      (post) => !term || `${post.title} ${post.body}`.toLowerCase().includes(term),
+    );
+  }, [boardNotices, noticeSearch]);
+  const noticePagination = usePagination(filteredNotices, noticeSearch);
 
   async function submitNotice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1420,37 +1435,57 @@ function NoticeBoard({
           </div>
         </form>
       )}
-      {boardNotices.length ? (
-        <div className="notice-board-list">
-          {boardNotices.map((post) => (
-            <article className="notice-board-item" key={post.id}>
-              <div className="notice-board-heading">
-                <div>
-                  <h3>{post.title}</h3>
-                  <small>{formatTimestamp(post.updatedAt ?? post.createdAt)} · {post.createdBy}</small>
-                </div>
-                {isAdmin && (
-                  <div className="decision-actions">
-                    <Button
-                      variant="secondary"
-                      onClick={() => {
-                        setEditingNoticeId(post.id);
-                        setNoticeTitle(post.title);
-                        setNoticeBody(post.body);
-                      }}
-                    >
-                      <Pencil size={15} /> Edit
-                    </Button>
-                    <Button variant="secondary" onClick={() => onDeleteNotice(post)}>
-                      <Trash2 size={15} /> Delete
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <p>{post.body}</p>
-            </article>
-          ))}
+      {boardNotices.length > 0 && (
+        <div className="repeat-list-toolbar">
+          <label className="search-field">
+            <Search size={16} />
+            <input
+              type="search"
+              value={noticeSearch}
+              placeholder="Search notices"
+              aria-label="Search notices"
+              onChange={(event) => setNoticeSearch(event.target.value)}
+            />
+          </label>
+          <span>{filteredNotices.length} notice{filteredNotices.length === 1 ? "" : "s"}</span>
         </div>
+      )}
+      {filteredNotices.length ? (
+        <>
+          <div className="notice-board-list">
+            {noticePagination.items.map((post) => (
+              <article className="notice-board-item" key={post.id}>
+                <div className="notice-board-heading">
+                  <div>
+                    <h3>{post.title}</h3>
+                    <small>{formatTimestamp(post.updatedAt ?? post.createdAt)} · {post.createdBy}</small>
+                  </div>
+                  {isAdmin && (
+                    <div className="decision-actions">
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setEditingNoticeId(post.id);
+                          setNoticeTitle(post.title);
+                          setNoticeBody(post.body);
+                        }}
+                      >
+                        <Pencil size={15} /> Edit
+                      </Button>
+                      <Button variant="secondary" onClick={() => onDeleteNotice(post)}>
+                        <Trash2 size={15} /> Delete
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <p>{post.body}</p>
+              </article>
+            ))}
+          </div>
+          <PaginationControls {...noticePagination} />
+        </>
+      ) : boardNotices.length ? (
+        <EmptyState icon={<Search size={20} />} title="No matching notices" text="Try a different search." />
       ) : (
         <EmptyState
           icon={<FilePlus2 size={20} />}
@@ -2051,6 +2086,13 @@ function LeavesPage({
   onEditRequest: (request: LeaveRequest) => void;
   onDeleteRequest: (request: LeaveRequest) => void;
 }) {
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [pendingTypeFilter, setPendingTypeFilter] = useState<"all" | LeaveType>("all");
+  const [pendingSort, setPendingSort] = useState<"submitted" | "employee" | "startDate" | "days">("submitted");
+  const [pendingSortDirection, setPendingSortDirection] = useState<SortDirection>("desc");
+  const [employeeSummarySearch, setEmployeeSummarySearch] = useState("");
+  const [employeeSummarySort, setEmployeeSummarySort] = useState<"employee" | "annual" | "sick">("employee");
+  const [employeeSummarySortDirection, setEmployeeSummarySortDirection] = useState<SortDirection>("asc");
   const waiting = requests.filter((request) => request.status === "pending").length;
   const currentFiscalYear = fiscalYearStartForDate(new Date());
   const [fiscalYearStart, setFiscalYearStart] = useState(currentFiscalYear);
@@ -2059,6 +2101,26 @@ function LeavesPage({
     [currentFiscalYear, employees, requests],
   );
   const approvedRequests = requests.filter((request) => request.status === "approved");
+  const pendingRequests = useMemo(
+    () => requests.filter((request) => request.status === "pending"),
+    [requests],
+  );
+  const filteredPendingRequests = useMemo(() => {
+    const term = pendingSearch.trim().toLowerCase();
+    return pendingRequests.filter(
+      (request) =>
+        !term ||
+        `${request.employeeName} ${request.employeeEmail} ${request.type} ${request.reason}`.toLowerCase().includes(term),
+    ).filter((request) => pendingTypeFilter === "all" || request.type === pendingTypeFilter);
+  }, [pendingRequests, pendingSearch, pendingTypeFilter]);
+  const filteredEmployeeSummaries = useMemo(() => {
+    const term = employeeSummarySearch.trim().toLowerCase();
+    return employees.filter(
+      (employee) =>
+        !term ||
+        `${employee.displayName} ${employee.email}`.toLowerCase().includes(term),
+    );
+  }, [employeeSummarySearch, employees]);
   const approvedDays = (type: LeaveType, employeeId?: string) =>
     approvedRequests.reduce(
       (total, request) =>
@@ -2068,6 +2130,42 @@ function LeavesPage({
           : total,
       0,
     );
+  const sortedPendingRequests = useMemo(
+    () =>
+      sortItems(
+        filteredPendingRequests,
+        (request) => {
+          if (pendingSort === "employee") return request.employeeName;
+          if (pendingSort === "startDate") return request.startDate;
+          if (pendingSort === "days") return dayCount(request.startDate, request.endDate);
+          return request.createdAt?.toDate().getTime();
+        },
+        pendingSortDirection,
+      ),
+    [filteredPendingRequests, pendingSort, pendingSortDirection],
+  );
+  const pendingPagination = usePagination(
+    sortedPendingRequests,
+    `${pendingSearch}:${pendingTypeFilter}:${pendingSort}:${pendingSortDirection}`,
+  );
+  const sortedEmployeeSummaries = useMemo(
+    () =>
+      sortItems(
+        filteredEmployeeSummaries,
+        (employee) =>
+          employeeSummarySort === "annual"
+            ? approvedDays("Annual leave", employee.uid)
+            : employeeSummarySort === "sick"
+              ? approvedDays("Sick leave", employee.uid)
+              : employee.displayName,
+        employeeSummarySortDirection,
+      ),
+    [filteredEmployeeSummaries, employeeSummarySort, employeeSummarySortDirection, approvedRequests, fiscalYearStart],
+  );
+  const employeeSummaryPagination = usePagination(
+    sortedEmployeeSummaries,
+    `${employeeSummarySearch}:${employeeSummarySort}:${employeeSummarySortDirection}`,
+  );
   const reservedDays = (type: LeaveType) =>
     requests.reduce(
       (total, request) =>
@@ -2089,43 +2187,91 @@ function LeavesPage({
               title="Requests to review"
               subtitle={waiting ? `${waiting} request${waiting === 1 ? "" : "s"} need your decision.` : "Everything has been reviewed."}
             />
-            {requests.filter((request) => request.status === "pending").length ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>EMPLOYEE</th>
-                      <th>LEAVE TYPE</th>
-                      <th>DATES</th>
-                      <th>DAYS</th>
-                      <th>REASON</th>
-                      <th className="align-right">DECISION</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {requests.filter((request) => request.status === "pending").map((request) => (
-                      <tr key={request.id}>
-                        <td>
-                          <div className="person-cell">
-                            <Initials name={request.employeeName} />
-                            <span><strong>{request.employeeName}</strong><small>{request.employeeEmail}</small></span>
-                          </div>
-                        </td>
-                        <td><span className={`leave-type leave-type-${leaveTypeTone(request.type)}`}>{request.type}</span></td>
-                        <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
-                        <td>{dayCount(request.startDate, request.endDate)}</td>
-                        <td className="reason-cell">{request.reason}</td>
-                        <td className="align-right">
-                          <div className="decision-actions">
-                            <Button variant="secondary" onClick={() => onReview(request, "rejected")}>Decline</Button>
-                            <Button onClick={() => onReview(request, "approved")}><Check size={15} /> Approve</Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {pendingRequests.length ? (
+              <>
+                <div className="repeat-list-toolbar">
+                  <label className="search-field">
+                    <Search size={16} />
+                    <input
+                      type="search"
+                      value={pendingSearch}
+                      placeholder="Search pending requests"
+                      aria-label="Search pending leave requests"
+                      onChange={(event) => setPendingSearch(event.target.value)}
+                    />
+                  </label>
+                  <label className="filter-select">
+                    <span className="sr-only">Filter pending requests by leave type</span>
+                    <select
+                      aria-label="Filter pending requests by leave type"
+                      value={pendingTypeFilter}
+                      onChange={(event) => setPendingTypeFilter(event.target.value as "all" | LeaveType)}
+                    >
+                      <option value="all">All leave types</option>
+                      <option value="Annual leave">Annual leave</option>
+                      <option value="Sick leave">Sick leave</option>
+                    </select>
+                  </label>
+                  <SortControls
+                    value={pendingSort}
+                    options={[
+                      { value: "submitted", label: "Submitted date" },
+                      { value: "employee", label: "Employee" },
+                      { value: "startDate", label: "Leave start date" },
+                      { value: "days", label: "Duration" },
+                    ]}
+                    direction={pendingSortDirection}
+                    onChange={(value) => setPendingSort(value as typeof pendingSort)}
+                    onToggleDirection={() =>
+                      setPendingSortDirection((direction) => direction === "asc" ? "desc" : "asc")
+                    }
+                  />
+                  <span>{filteredPendingRequests.length} awaiting review</span>
+                </div>
+                {filteredPendingRequests.length ? (
+                  <>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>EMPLOYEE</th>
+                            <th>LEAVE TYPE</th>
+                            <th>DATES</th>
+                            <th>DAYS</th>
+                            <th>REASON</th>
+                            <th className="align-right">DECISION</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pendingPagination.items.map((request) => (
+                            <tr key={request.id}>
+                              <td>
+                                <div className="person-cell">
+                                  <Initials name={request.employeeName} />
+                                  <span><strong>{request.employeeName}</strong><small>{request.employeeEmail}</small></span>
+                                </div>
+                              </td>
+                              <td><span className={`leave-type leave-type-${leaveTypeTone(request.type)}`}>{request.type}</span></td>
+                              <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
+                              <td>{dayCount(request.startDate, request.endDate)}</td>
+                              <td className="reason-cell">{request.reason}</td>
+                              <td className="align-right">
+                                <div className="decision-actions">
+                                  <Button variant="secondary" onClick={() => onReview(request, "rejected")}>Decline</Button>
+                                  <Button onClick={() => onReview(request, "approved")}><Check size={15} /> Approve</Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <PaginationControls {...pendingPagination} />
+                  </>
+                ) : (
+                  <EmptyState icon={<Search size={20} />} title="No matching requests" text="Try a different search." />
+                )}
+              </>
             ) : (
               <EmptyState icon={<CheckCircle2 size={20} />} title="No pending requests" text="New employee requests will show up here." />
             )}
@@ -2159,27 +2305,62 @@ function LeavesPage({
               </label>
             </div>
             {employees.length ? (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr><th>EMPLOYEE</th><th>ANNUAL LEAVE DAYS</th><th>SICK LEAVE DAYS</th></tr>
-                  </thead>
-                  <tbody>
-                    {employees.map((employee) => (
-                      <tr key={employee.uid}>
-                        <td>
-                          <div className="person-cell">
-                            <Initials name={employee.displayName} />
-                            <span><strong>{employee.displayName}</strong></span>
-                          </div>
-                        </td>
-                        <td>{approvedDays("Annual leave", employee.uid)}</td>
-                        <td>{approvedDays("Sick leave", employee.uid)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="repeat-list-toolbar">
+                  <label className="search-field">
+                    <Search size={16} />
+                    <input
+                      type="search"
+                      value={employeeSummarySearch}
+                      placeholder="Search employees"
+                      aria-label="Search leave summaries by employee"
+                      onChange={(event) => setEmployeeSummarySearch(event.target.value)}
+                    />
+                  </label>
+                  <SortControls
+                    value={employeeSummarySort}
+                    options={[
+                      { value: "employee", label: "Employee" },
+                      { value: "annual", label: "Annual leave days" },
+                      { value: "sick", label: "Sick leave days" },
+                    ]}
+                    direction={employeeSummarySortDirection}
+                    onChange={(value) => setEmployeeSummarySort(value as typeof employeeSummarySort)}
+                    onToggleDirection={() =>
+                      setEmployeeSummarySortDirection((direction) => direction === "asc" ? "desc" : "asc")
+                    }
+                  />
+                  <span>{filteredEmployeeSummaries.length} employees</span>
+                </div>
+                {filteredEmployeeSummaries.length ? (
+                  <>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr><th>EMPLOYEE</th><th>ANNUAL LEAVE DAYS</th><th>SICK LEAVE DAYS</th></tr>
+                        </thead>
+                        <tbody>
+                          {employeeSummaryPagination.items.map((employee) => (
+                            <tr key={employee.uid}>
+                              <td>
+                                <div className="person-cell">
+                                  <Initials name={employee.displayName} />
+                                  <span><strong>{employee.displayName}</strong></span>
+                                </div>
+                              </td>
+                              <td>{approvedDays("Annual leave", employee.uid)}</td>
+                              <td>{approvedDays("Sick leave", employee.uid)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <PaginationControls {...employeeSummaryPagination} />
+                  </>
+                ) : (
+                  <EmptyState icon={<Search size={20} />} title="No matching employees" text="Try a different search." />
+                )}
+              </>
             ) : (
               <EmptyState icon={<Users size={20} />} title="No approved employees" text="Leave totals will appear here." />
             )}
@@ -2314,6 +2495,43 @@ function LeaveTable({
   onEdit?: (request: LeaveRequest) => void;
   onDelete?: (request: LeaveRequest) => void;
 }) {
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<LeaveStatus | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | LeaveType>("all");
+  const [sortBy, setSortBy] = useState<"startDate" | "submitted" | "employee" | "days" | "type" | "status">("submitted");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const filteredRequests = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return requests.filter((request) => {
+      const matchesStatus = statusFilter === "all" || request.status === statusFilter;
+      const matchesType = typeFilter === "all" || request.type === typeFilter;
+      const matchesSearch =
+        !term ||
+        `${request.employeeName} ${request.employeeEmail} ${request.type} ${request.reason} ${request.startDate} ${request.endDate}`.toLowerCase().includes(term);
+      return matchesStatus && matchesType && matchesSearch;
+    });
+  }, [requests, search, statusFilter, typeFilter]);
+  const sortedRequests = useMemo(
+    () =>
+      sortItems(
+        filteredRequests,
+        (request) => {
+          if (sortBy === "startDate") return request.startDate;
+          if (sortBy === "employee") return request.employeeName;
+          if (sortBy === "days") return dayCount(request.startDate, request.endDate);
+          if (sortBy === "type") return request.type;
+          if (sortBy === "status") return request.status;
+          return request.createdAt?.toDate().getTime();
+        },
+        sortDirection,
+      ),
+    [filteredRequests, sortBy, sortDirection],
+  );
+  const pagination = usePagination(
+    sortedRequests,
+    `${search}:${statusFilter}:${typeFilter}:${sortBy}:${sortDirection}`,
+  );
+
   if (!requests.length) {
     return (
       <EmptyState
@@ -2324,56 +2542,119 @@ function LeaveTable({
     );
   }
   return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            {showEmployee && <th>EMPLOYEE</th>}
-            <th>LEAVE TYPE</th>
-            <th>DATES</th>
-            <th>DAYS</th>
-            <th>SUBMITTED</th>
-            <th>STATUS</th>
-            {(onEdit || onDelete) && <th className="align-right">ACTIONS</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {requests.map((request) => (
-            <tr key={request.id}>
-              {showEmployee && (
-                <td>
-                  <div className="person-cell">
-                    <Initials name={request.employeeName} />
-                    <span><strong>{request.employeeName}</strong><small>{request.employeeEmail}</small></span>
-                  </div>
-                </td>
-              )}
-              <td><span className={`leave-type leave-type-${leaveTypeTone(request.type)}`}>{request.type}</span></td>
-              <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
-              <td>{dayCount(request.startDate, request.endDate)}</td>
-              <td>{formatTimestamp(request.createdAt)}</td>
-              <td><StatusPill status={request.status} /></td>
-              {(onEdit || onDelete) && (
-                <td className="align-right">
-                  <div className="decision-actions">
-                    {onEdit && (
-                      <Button variant="secondary" onClick={() => onEdit(request)}>
-                        <Pencil size={15} /> Edit
-                      </Button>
+    <>
+      <div className="repeat-list-toolbar">
+        <label className="search-field">
+          <Search size={16} />
+          <input
+            type="search"
+            value={search}
+            placeholder="Search leave requests"
+            aria-label="Search leave requests"
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <label className="filter-select">
+          <span className="sr-only">Filter requests by status</span>
+          <select
+            aria-label="Filter leave requests by status"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as LeaveStatus | "all")}
+          >
+            <option value="all">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Declined</option>
+          </select>
+        </label>
+        <label className="filter-select">
+          <span className="sr-only">Filter leave requests by type</span>
+          <select
+            aria-label="Filter leave requests by type"
+            value={typeFilter}
+            onChange={(event) => setTypeFilter(event.target.value as "all" | LeaveType)}
+          >
+            <option value="all">All leave types</option>
+            <option value="Annual leave">Annual leave</option>
+            <option value="Sick leave">Sick leave</option>
+          </select>
+        </label>
+        <SortControls
+          value={sortBy}
+          options={[
+            { value: "submitted", label: "Submitted date" },
+            { value: "startDate", label: "Leave start date" },
+            { value: "employee", label: "Employee" },
+            { value: "days", label: "Duration" },
+            { value: "type", label: "Leave type" },
+            { value: "status", label: "Status" },
+          ]}
+          direction={sortDirection}
+          onChange={(value) => setSortBy(value as typeof sortBy)}
+          onToggleDirection={() =>
+            setSortDirection((direction) => direction === "asc" ? "desc" : "asc")
+          }
+        />
+        <span>{filteredRequests.length} request{filteredRequests.length === 1 ? "" : "s"}</span>
+      </div>
+      {filteredRequests.length ? (
+        <>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {showEmployee && <th>EMPLOYEE</th>}
+                  <th>LEAVE TYPE</th>
+                  <th>DATES</th>
+                  <th>DAYS</th>
+                  <th>SUBMITTED</th>
+                  <th>STATUS</th>
+                  {(onEdit || onDelete) && <th className="align-right">ACTIONS</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {pagination.items.map((request) => (
+                  <tr key={request.id}>
+                    {showEmployee && (
+                      <td>
+                        <div className="person-cell">
+                          <Initials name={request.employeeName} />
+                          <span><strong>{request.employeeName}</strong><small>{request.employeeEmail}</small></span>
+                        </div>
+                      </td>
                     )}
-                    {onDelete && (
-                      <Button variant="secondary" onClick={() => onDelete(request)}>
-                        <Trash2 size={15} /> Delete
-                      </Button>
+                    <td><span className={`leave-type leave-type-${leaveTypeTone(request.type)}`}>{request.type}</span></td>
+                    <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
+                    <td>{dayCount(request.startDate, request.endDate)}</td>
+                    <td>{formatTimestamp(request.createdAt)}</td>
+                    <td><StatusPill status={request.status} /></td>
+                    {(onEdit || onDelete) && (
+                      <td className="align-right">
+                        <div className="decision-actions">
+                          {onEdit && (
+                            <Button variant="secondary" onClick={() => onEdit(request)}>
+                              <Pencil size={15} /> Edit
+                            </Button>
+                          )}
+                          {onDelete && (
+                            <Button variant="secondary" onClick={() => onDelete(request)}>
+                              <Trash2 size={15} /> Delete
+                            </Button>
+                          )}
+                        </div>
+                      </td>
                     )}
-                  </div>
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginationControls {...pagination} />
+        </>
+      ) : (
+        <EmptyState icon={<Search size={20} />} title="No matching requests" text="Try a different search or status." />
+      )}
+    </>
   );
 }
 
@@ -2402,21 +2683,19 @@ function AttendancePage({
   onDeleteRecord: (record: AttendanceRecord) => void;
 }) {
   const [search, setSearch] = useState("");
+  const [rosterSearch, setRosterSearch] = useState("");
+  const [rosterStatusFilter, setRosterStatusFilter] = useState<AttendanceStatus | "unmarked" | "all">("all");
+  const [rosterSort, setRosterSort] = useState<"employee" | "status">("employee");
+  const [rosterSortDirection, setRosterSortDirection] = useState<SortDirection>("asc");
+  const [recordStatusFilter, setRecordStatusFilter] = useState<AttendanceStatus | "all">("all");
+  const [recordFromDate, setRecordFromDate] = useState("");
+  const [recordToDate, setRecordToDate] = useState("");
+  const [recordSort, setRecordSort] = useState<"date" | "employee" | "status">("date");
+  const [recordSortDirection, setRecordSortDirection] = useState<SortDirection>("desc");
   const [attendanceDate, setAttendanceDate] = useState(today);
   const [notesByEmployee, setNotesByEmployee] = useState<Record<string, string>>({});
   const [savingEmployeeIds, setSavingEmployeeIds] = useState<Set<string>>(() => new Set());
   const [openStatusMenuId, setOpenStatusMenuId] = useState<string | null>(null);
-  const filteredRecords = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return records.filter((record) => {
-      const matchesSearch =
-        !term ||
-        record.employeeName.toLowerCase().includes(term) ||
-        record.date.includes(term) ||
-        record.status.includes(term);
-      return matchesSearch;
-    });
-  }, [records, search]);
   const attendanceForDate = useMemo(
     () =>
       new Map(
@@ -2425,6 +2704,69 @@ function AttendancePage({
           .map((record) => [record.employeeId, record]),
       ),
     [attendanceDate, records],
+  );
+  const filteredRecords = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return records.filter((record) => {
+      const matchesSearch =
+        !term ||
+        record.employeeName.toLowerCase().includes(term) ||
+        record.date.includes(term) ||
+        record.status.includes(term);
+      const matchesStatus = recordStatusFilter === "all" || record.status === recordStatusFilter;
+      const matchesFromDate = !recordFromDate || record.date >= recordFromDate;
+      const matchesToDate = !recordToDate || record.date <= recordToDate;
+      return matchesSearch && matchesStatus && matchesFromDate && matchesToDate;
+    });
+  }, [records, search, recordStatusFilter, recordFromDate, recordToDate]);
+  const sortedRecords = useMemo(
+    () =>
+      sortItems(
+        filteredRecords,
+        (record) =>
+          recordSort === "employee"
+            ? record.employeeName
+            : recordSort === "status"
+              ? record.status
+              : record.date,
+        recordSortDirection,
+      ),
+    [filteredRecords, recordSort, recordSortDirection],
+  );
+  const filteredEmployees = useMemo(() => {
+    const term = rosterSearch.trim().toLowerCase();
+    return employees.filter(
+      (employee) => {
+        const status = attendanceForDate.get(employee.uid)?.status;
+        const matchesStatus =
+          rosterStatusFilter === "all" ||
+          (rosterStatusFilter === "unmarked" ? !status : status === rosterStatusFilter);
+        return (
+          matchesStatus &&
+          (!term || `${employee.displayName} ${employee.email}`.toLowerCase().includes(term))
+        );
+      },
+    );
+  }, [employees, attendanceForDate, rosterSearch, rosterStatusFilter]);
+  const sortedEmployees = useMemo(
+    () =>
+      sortItems(
+        filteredEmployees,
+        (employee) => {
+          if (rosterSort === "employee") return employee.displayName;
+          return attendanceForDate.get(employee.uid)?.status ?? "unmarked";
+        },
+        rosterSortDirection,
+      ),
+    [filteredEmployees, attendanceForDate, rosterSort, rosterSortDirection],
+  );
+  const rosterPagination = usePagination(
+    sortedEmployees,
+    `${attendanceDate}:${rosterSearch}:${rosterStatusFilter}:${rosterSort}:${rosterSortDirection}`,
+  );
+  const recordPagination = usePagination(
+    sortedRecords,
+    `${search}:${recordStatusFilter}:${recordFromDate}:${recordToDate}:${recordSort}:${recordSortDirection}`,
   );
   async function chooseAttendanceStatus(
     employee: EmployeeProfile,
@@ -2499,19 +2841,61 @@ function AttendancePage({
                     }}
                   />
                 </label>
+                <label className="search-field">
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    value={rosterSearch}
+                    placeholder="Find an employee"
+                    aria-label="Search attendance roster"
+                    onChange={(event) => setRosterSearch(event.target.value)}
+                  />
+                </label>
+                <label className="filter-select">
+                  <span className="sr-only">Filter attendance roster by status</span>
+                  <select
+                    aria-label="Filter attendance roster by status"
+                    value={rosterStatusFilter}
+                    onChange={(event) =>
+                      setRosterStatusFilter(event.target.value as AttendanceStatus | "unmarked" | "all")
+                    }
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="unmarked">Not marked</option>
+                    <option value="present">Present</option>
+                    <option value="late">Late</option>
+                    <option value="absent">Absent</option>
+                    <option value="leave">Leave</option>
+                  </select>
+                </label>
+                <SortControls
+                  value={rosterSort}
+                  options={[
+                    { value: "employee", label: "Employee" },
+                    { value: "status", label: "Status" },
+                  ]}
+                  direction={rosterSortDirection}
+                  onChange={(value) => setRosterSort(value as typeof rosterSort)}
+                  onToggleDirection={() =>
+                    setRosterSortDirection((direction) => direction === "asc" ? "desc" : "asc")
+                  }
+                />
+                <span>{filteredEmployees.length} employees</span>
               </div>
-              <div className="table-wrap attendance-roster-wrap">
-                <table className="attendance-roster-table">
-                  <thead>
-                    <tr><th>EMPLOYEE</th><th>STATUS</th><th>NOTE <span className="optional-label">OPTIONAL</span></th></tr>
-                  </thead>
-                  <tbody>
-                    {employees.map((employee) => {
-                      const existing = attendanceForDate.get(employee.uid);
-                      const status = existing?.status;
-                      const isSaving = savingEmployeeIds.has(employee.uid);
-                      return (
-                        <tr key={employee.uid}>
+              {filteredEmployees.length ? (
+                <>
+                  <div className="table-wrap attendance-roster-wrap">
+                    <table className="attendance-roster-table">
+                      <thead>
+                        <tr><th>EMPLOYEE</th><th>STATUS</th><th>NOTE <span className="optional-label">OPTIONAL</span></th></tr>
+                      </thead>
+                      <tbody>
+                        {rosterPagination.items.map((employee) => {
+                          const existing = attendanceForDate.get(employee.uid);
+                          const status = existing?.status;
+                          const isSaving = savingEmployeeIds.has(employee.uid);
+                          return (
+                            <tr key={employee.uid}>
                           <td>
                             <div className="attendance-roster-person">
                               <div
@@ -2594,12 +2978,17 @@ function AttendancePage({
                               aria-label={`Optional attendance note for ${employee.displayName}; click a status to save`}
                             />
                           </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <PaginationControls {...rosterPagination} />
+                </>
+              ) : (
+                <EmptyState icon={<Search size={20} />} title="No matching employees" text="Try a different search." />
+              )}
             </div>
           ) : (
             <EmptyState icon={<Users size={20} />} title="No approved employees yet" text="Approve employee accounts before recording attendance." />
@@ -2625,56 +3014,109 @@ function AttendancePage({
             </label>
           )}
         </div>
-        {filteredRecords.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  {isAdmin && <th>EMPLOYEE</th>}
-                  <th>DATE</th>
-                  <th>STATUS</th>
-                  <th>NOTE</th>
-                  {isAdmin && <th>RECORDED BY</th>}
-                  {isAdmin && <th className="align-right">ACTIONS</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((record) => (
-                  <tr key={record.id}>
-                    {isAdmin && (
-                      <td>
-                        <div className="person-cell">
-                          <Initials name={record.employeeName} />
-                          <span><strong>{record.employeeName}</strong></span>
-                        </div>
-                      </td>
-                    )}
-                    <td>{formatDate(record.date)}</td>
-                    <td><StatusPill status={record.status} /></td>
-                    <td className="reason-cell">{record.note || "—"}</td>
-                    {isAdmin && <td>{record.recordedBy}</td>}
-                    {isAdmin && (
-                      <td className="align-right">
-                        <div className="decision-actions">
-                          <Button variant="secondary" onClick={() => onEditRecord(record)}>
-                            <Pencil size={15} /> Edit
-                          </Button>
-                          <Button variant="secondary" onClick={() => onDeleteRecord(record)}>
-                            <Trash2 size={15} /> Delete
-                          </Button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {records.length > 0 && (
+          <div className="repeat-list-toolbar attendance-record-filters">
+            <label className="filter-select">
+              <span className="sr-only">Filter attendance records by status</span>
+              <select
+                aria-label="Filter attendance records by status"
+                value={recordStatusFilter}
+                onChange={(event) => setRecordStatusFilter(event.target.value as AttendanceStatus | "all")}
+              >
+                <option value="all">All statuses</option>
+                <option value="present">Present</option>
+                <option value="late">Late</option>
+                <option value="absent">Absent</option>
+                <option value="leave">Leave</option>
+              </select>
+            </label>
+            <label className="attendance-date-filter">
+              From
+              <input
+                type="date"
+                aria-label="Attendance records from date"
+                value={recordFromDate}
+                onChange={(event) => setRecordFromDate(event.target.value)}
+              />
+            </label>
+            <label className="attendance-date-filter">
+              To
+              <input
+                type="date"
+                aria-label="Attendance records to date"
+                value={recordToDate}
+                onChange={(event) => setRecordToDate(event.target.value)}
+              />
+            </label>
+            <SortControls
+              value={recordSort}
+              options={[
+                { value: "date", label: "Date" },
+                ...(isAdmin ? [{ value: "employee", label: "Employee" }] : []),
+                { value: "status", label: "Status" },
+              ]}
+              direction={recordSortDirection}
+              onChange={(value) => setRecordSort(value as typeof recordSort)}
+              onToggleDirection={() =>
+                setRecordSortDirection((direction) => direction === "asc" ? "desc" : "asc")
+              }
+            />
+            <span>{filteredRecords.length} of {records.length} records</span>
           </div>
+        )}
+        {filteredRecords.length ? (
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    {isAdmin && <th>EMPLOYEE</th>}
+                    <th>DATE</th>
+                    <th>STATUS</th>
+                    <th>NOTE</th>
+                    {isAdmin && <th>RECORDED BY</th>}
+                    {isAdmin && <th className="align-right">ACTIONS</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {recordPagination.items.map((record) => (
+                    <tr key={record.id}>
+                      {isAdmin && (
+                        <td>
+                          <div className="person-cell">
+                            <Initials name={record.employeeName} />
+                            <span><strong>{record.employeeName}</strong></span>
+                          </div>
+                        </td>
+                      )}
+                      <td>{formatDate(record.date)}</td>
+                      <td><StatusPill status={record.status} /></td>
+                      <td className="reason-cell">{record.note || "—"}</td>
+                      {isAdmin && <td>{record.recordedBy}</td>}
+                      {isAdmin && (
+                        <td className="align-right">
+                          <div className="decision-actions">
+                            <Button variant="secondary" onClick={() => onEditRecord(record)}>
+                              <Pencil size={15} /> Edit
+                            </Button>
+                            <Button variant="secondary" onClick={() => onDeleteRecord(record)}>
+                              <Trash2 size={15} /> Delete
+                            </Button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <PaginationControls {...recordPagination} />
+          </>
         ) : (
           <EmptyState
             icon={<CalendarCheck2 size={20} />}
-            title={isAdmin ? "No attendance records" : "Nothing recorded yet"}
-            text={isAdmin ? "Add a record above to get started." : "Your administrator records attendance for the team."}
+            title={filteredRecords.length === 0 && records.length ? "No matching attendance records" : isAdmin ? "No attendance records" : "Nothing recorded yet"}
+            text={records.length ? "Try a different search." : isAdmin ? "Add a record above to get started." : "Your administrator records attendance for the team."}
           />
         )}
       </section>
@@ -2708,6 +3150,9 @@ function TeamPage({
   onDeleteEmployee: (employee: EmployeeProfile) => void;
 }) {
   const [filter, setFilter] = useState<"all" | ApprovalStatus>("all");
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [employeeSort, setEmployeeSort] = useState<"name" | "registered" | "access">("name");
+  const [employeeSortDirection, setEmployeeSortDirection] = useState<SortDirection>("asc");
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null);
   const currentFiscalYear = fiscalYearStartForDate(new Date());
   const [fiscalYearStart, setFiscalYearStart] = useState(currentFiscalYear);
@@ -2715,8 +3160,31 @@ function TeamPage({
     () => availableFiscalYears(employees, [], currentFiscalYear),
     [currentFiscalYear, employees],
   );
-  const visibleEmployees = employees.filter(
-    (employee) => filter === "all" || employee.status === filter,
+  const visibleEmployees = employees.filter((employee) => {
+    const matchesFilter = filter === "all" || employee.status === filter;
+    const term = employeeSearch.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      `${employee.displayName} ${employee.email}`.toLowerCase().includes(term);
+    return matchesFilter && matchesSearch;
+  });
+  const sortedVisibleEmployees = useMemo(
+    () =>
+      sortItems(
+        visibleEmployees,
+        (employee) =>
+          employeeSort === "registered"
+            ? employee.createdAt?.toDate().getTime()
+            : employeeSort === "access"
+              ? employee.status
+              : employee.displayName,
+        employeeSortDirection,
+      ),
+    [visibleEmployees, employeeSort, employeeSortDirection],
+  );
+  const employeePagination = usePagination(
+    sortedVisibleEmployees,
+    `${filter}:${employeeSearch}:${employeeSort}:${employeeSortDirection}`,
   );
   const selectedEmployee = employees.find(
     (employee) => employee.uid === profileEmployeeId,
@@ -2737,6 +3205,16 @@ function TeamPage({
             <p>Manage employee access and fiscal-year leave balances.</p>
           </div>
           <div className="team-filters">
+            <label className="search-field">
+              <Search size={16} />
+              <input
+                type="search"
+                value={employeeSearch}
+                placeholder="Search employees"
+                aria-label="Search employee accounts"
+                onChange={(event) => setEmployeeSearch(event.target.value)}
+              />
+            </label>
             <label className="filter-select">
               <span className="sr-only">Select fiscal year for leave balances</span>
               <select
@@ -2758,95 +3236,104 @@ function TeamPage({
                 <option value="rejected">Declined</option>
               </select>
             </label>
+            <SortControls
+              value={employeeSort}
+              options={[
+                { value: "name", label: "Employee" },
+                { value: "registered", label: "Registration date" },
+                { value: "access", label: "Access status" },
+              ]}
+              direction={employeeSortDirection}
+              onChange={(value) => setEmployeeSort(value as typeof employeeSort)}
+              onToggleDirection={() =>
+                setEmployeeSortDirection((direction) => direction === "asc" ? "desc" : "asc")
+              }
+            />
           </div>
         </div>
         {visibleEmployees.length ? (
-          <div className="table-wrap">
-            <table className="team-table">
-              <thead>
-                <tr><th>EMPLOYEE</th><th>REGISTERED</th><th>ACCESS</th><th>LEAVE BALANCES</th><th className="align-right">ACTIONS</th></tr>
-              </thead>
-              <tbody>
-                {visibleEmployees.map((employee) => (
-                  <tr key={employee.uid}>
-                    <td>
-                      <div className="person-cell">
-                        <Initials name={employee.displayName} />
-                        <span><strong>{employee.displayName}</strong><small>{employee.email}</small></span>
-                      </div>
-                    </td>
-                    <td>{formatTimestamp(employee.createdAt)}</td>
-                    <td><StatusPill status={employee.status} /></td>
-                    <td>
-                      <LeaveBalanceEditor
-                        key={`${employee.uid}-${fiscalYearStart}`}
-                        employee={employee}
-                        fiscalYearStart={fiscalYearStart}
-                        onSave={onSaveLeaveBalances}
-                      />
-                    </td>
-                    <td className="align-right">
-                      <div className="decision-actions">
-                      {employee.status === "pending" ? (
-                        <>
-                          <Button variant="secondary" onClick={() => onApprove(employee, "rejected")}>Decline</Button>
-                          <Button onClick={() => onApprove(employee, "approved")}><Check size={15} /> Approve</Button>
-                        </>
-                      ) : employee.status === "rejected" ? (
-                        <Button variant="secondary" onClick={() => onApprove(employee, "approved")}>Approve access</Button>
-                      ) : (
-                        <span className="muted-cell">Access granted</span>
-                      )}
-                        <Button variant="secondary" onClick={() => setProfileEmployeeId(employee.uid)}>
-                          <Users size={15} /> View profile
-                        </Button>
-                        <Button variant="secondary" onClick={() => onDeleteEmployee(employee)}>
-                          <Trash2 size={15} /> Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <EmptyState icon={<Users size={20} />} title="No employee accounts" text="New Google sign-ins will appear here for approval." />
-        )}
-      </section>
-      <section className="panel employee-attendance-panel">
-        <PanelHeading
-          title="Employee attendance"
-          subtitle="A day-by-day view of each approved employee over the past 12 months. Weekends, public holidays, and days without a recorded status stay gray."
-        />
-        {employees.some((employee) => employee.status === "approved") ? (
-          <div className="employee-attendance-list">
-            {employees
-              .filter((employee) => employee.status === "approved")
-              .map((employee) => (
-                <EmployeeAttendanceHeatmap
-                  key={employee.uid}
-                  employee={employee}
-                  attendance={attendance.filter((record) => record.employeeId === employee.uid)}
-                  leaveRequests={leaveRequests.filter((request) => request.employeeId === employee.uid)}
-                />
-              ))}
-          </div>
+          <>
+            <div className="table-wrap">
+              <table className="team-table">
+                <thead>
+                  <tr><th>EMPLOYEE</th><th>REGISTERED</th><th>ACCESS</th><th>LEAVE BALANCES</th><th className="align-right">ACTIONS</th></tr>
+                </thead>
+                <tbody>
+                  {employeePagination.items.map((employee) => (
+                    <tr key={employee.uid}>
+                      <td>
+                        <div className="person-cell">
+                          <Initials name={employee.displayName} />
+                          <span><strong>{employee.displayName}</strong><small>{employee.email}</small></span>
+                        </div>
+                      </td>
+                      <td>{formatTimestamp(employee.createdAt)}</td>
+                      <td><StatusPill status={employee.status} /></td>
+                      <td>
+                        <LeaveBalanceEditor
+                          key={`${employee.uid}-${fiscalYearStart}`}
+                          employee={employee}
+                          fiscalYearStart={fiscalYearStart}
+                          onSave={onSaveLeaveBalances}
+                        />
+                      </td>
+                      <td className="align-right">
+                        <div className="decision-actions">
+                          {employee.status === "pending" ? (
+                            <>
+                              <Button variant="secondary" onClick={() => onApprove(employee, "rejected")}>Decline</Button>
+                              <Button onClick={() => onApprove(employee, "approved")}><Check size={15} /> Approve</Button>
+                            </>
+                          ) : employee.status === "rejected" ? (
+                            <Button variant="secondary" onClick={() => onApprove(employee, "approved")}>Approve access</Button>
+                          ) : (
+                            <span className="muted-cell">Access granted</span>
+                          )}
+                          <Button variant="secondary" onClick={() => setProfileEmployeeId(employee.uid)}>
+                            <Users size={15} /> View profile
+                          </Button>
+                          <Button variant="secondary" onClick={() => onDeleteEmployee(employee)}>
+                            <Trash2 size={15} /> Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <PaginationControls {...employeePagination} />
+          </>
         ) : (
           <EmptyState
-            icon={<CalendarCheck2 size={20} />}
-            title="No approved employees yet"
-            text="Attendance histories will appear here after employee accounts are approved."
+            icon={<Users size={20} />}
+            title={employees.length ? "No matching employees" : "No employee accounts"}
+            text={employees.length ? "Try another name, email, or access filter." : "New Google sign-ins will appear here for approval."}
           />
         )}
       </section>
       {selectedEmployee && (
-        <EmployeeProfileDetailsPanel
-          key={selectedEmployee.uid}
-          employee={selectedEmployee}
-          onSave={onSaveEmployeeDetails}
-          onClose={() => setProfileEmployeeId(null)}
-        />
+        <>
+          <EmployeeProfileDetailsPanel
+            key={selectedEmployee.uid}
+            employee={selectedEmployee}
+            onSave={onSaveEmployeeDetails}
+            onClose={() => setProfileEmployeeId(null)}
+          />
+          <section className="panel employee-attendance-panel">
+            <PanelHeading
+              title="Attendance history"
+              subtitle="A day-by-day view over the past 12 months. Weekends, public holidays, and days without a recorded status stay gray."
+            />
+            <div className="employee-attendance-list">
+              <EmployeeAttendanceHeatmap
+                employee={selectedEmployee}
+                attendance={attendance.filter((record) => record.employeeId === selectedEmployee.uid)}
+                leaveRequests={leaveRequests.filter((request) => request.employeeId === selectedEmployee.uid)}
+              />
+            </div>
+          </section>
+        </>
       )}
       <section className="admin-note">
         <ShieldCheck size={18} />

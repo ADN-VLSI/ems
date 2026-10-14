@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { CheckCircle2, MessageSquareText, RotateCcw, Send, Trash2 } from "lucide-react";
+import { CheckCircle2, MessageSquareText, RotateCcw, Search, Send, Trash2 } from "lucide-react";
 import {
   createConcern,
   deleteConcern,
@@ -8,6 +8,7 @@ import {
   setConcernStatus,
 } from "./data";
 import type { Concern, ConcernMessage } from "./types";
+import { PaginationControls, usePagination } from "./Pagination";
 
 type Props = {
   isAdmin: boolean;
@@ -64,6 +65,7 @@ export function ConcernsPage({
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
+  const [search, setSearch] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,7 +74,15 @@ export function ConcernsPage({
   const threadEnd = useRef<HTMLDivElement>(null);
 
   const selected = concerns.find((item) => item.id === selectedId) ?? null;
-  const visible = concerns.filter((item) => filter === "all" || item.status === filter);
+  const visible = concerns.filter((item) => {
+    const matchesFilter = filter === "all" || item.status === filter;
+    const term = search.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      `${item.subject} ${item.employeeName} ${item.employeeEmail} ${item.body}`.toLowerCase().includes(term);
+    return matchesFilter && matchesSearch;
+  });
+  const pagination = usePagination(visible, `${filter}:${search}`);
 
   useEffect(() => {
     setMessages([]);
@@ -210,6 +220,18 @@ export function ConcernsPage({
               <h2>{isAdmin ? "Employee concerns" : "My concerns"}</h2>
               <p>{concerns.length} total</p>
             </div>
+          </div>
+          <div className="repeat-list-toolbar">
+            <label className="search-field">
+              <Search size={16} />
+              <input
+                type="search"
+                value={search}
+                placeholder="Search concerns"
+                aria-label="Search concerns"
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
             {isAdmin && (
               <select
                 className="concern-filter"
@@ -222,34 +244,44 @@ export function ConcernsPage({
                 <option value="resolved">Resolved</option>
               </select>
             )}
+            <span>{visible.length} of {concerns.length} concerns</span>
           </div>
           {visible.length === 0 ? (
             <div className="empty-state">
               <span className="empty-icon"><MessageSquareText size={20} /></span>
-              <strong>No concerns</strong>
-              <span>{isAdmin ? "Nothing to review right now." : "Concerns you raise will appear here."}</span>
+              <strong>{concerns.length ? "No matching concerns" : "No concerns"}</strong>
+              <span>
+                {concerns.length
+                  ? "Try a different search or status."
+                  : isAdmin
+                    ? "Nothing to review right now."
+                    : "Concerns you raise will appear here."}
+              </span>
             </div>
           ) : (
-            <ul className="concern-list">
-              {visible.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className={`concern-item ${item.id === selectedId ? "concern-item-active" : ""}`}
-                    onClick={() => setSelectedId(item.id)}
-                  >
-                    <span className="concern-item-main">
-                      <strong>{item.subject}</strong>
-                      <small>
-                        {isAdmin ? `${item.employeeName} · ` : ""}
-                        {formatDateTime(item.updatedAt)}
-                      </small>
-                    </span>
-                    <ConcernPill concern={item} isAdmin={isAdmin} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="concern-list">
+                {pagination.items.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      className={`concern-item ${item.id === selectedId ? "concern-item-active" : ""}`}
+                      onClick={() => setSelectedId(item.id)}
+                    >
+                      <span className="concern-item-main">
+                        <strong>{item.subject}</strong>
+                        <small>
+                          {isAdmin ? `${item.employeeName} · ` : ""}
+                          {formatDateTime(item.updatedAt)}
+                        </small>
+                      </span>
+                      <ConcernPill concern={item} isAdmin={isAdmin} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <PaginationControls {...pagination} />
+            </>
           )}
         </section>
       </div>
