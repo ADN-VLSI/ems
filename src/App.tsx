@@ -2928,13 +2928,18 @@ function AttendancePage({
                         >
                           <div className="attendance-roster-hover-heading">
                             <strong>{employee.displayName}</strong>
-                            {isSaving ? (
-                              <span className="attendance-roster-saving">Saving…</span>
-                            ) : displayStatus ? (
-                              <StatusPill status={displayStatus} />
-                            ) : (
-                              <span className="attendance-roster-unmarked">Not marked</span>
-                            )}
+                            <div className="attendance-roster-hover-status">
+                              {isSaving ? (
+                                <span className="attendance-roster-saving">Saving…</span>
+                              ) : displayStatus ? (
+                                <StatusPill status={displayStatus} />
+                              ) : (
+                                <>
+                                  <span className="attendance-roster-unmarked">Not marked</span>
+                                  {leaveStatus && <StatusPill status={leaveStatus} />}
+                                </>
+                              )}
+                            </div>
                           </div>
                           {upcomingAnnualLeave && (
                             <div className="attendance-roster-leave-booking attendance-roster-leave-booking-active">

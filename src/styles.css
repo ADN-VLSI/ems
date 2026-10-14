@@ -2030,6 +2030,13 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 
+.attendance-roster-hover-status {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+}
+
 .attendance-roster-leave-booking {
   display: grid;
   gap: 3px;
