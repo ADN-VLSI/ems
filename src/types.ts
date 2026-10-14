@@ -19,6 +19,7 @@ export interface TrackRecord {
 export interface EmployeeProfile {
   uid: string;
   email: string;
+  photoURL?: string;
   officialEmail?: string;
   displayName: string;
   status: ApprovalStatus;

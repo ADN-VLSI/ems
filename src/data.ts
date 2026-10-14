@@ -39,17 +39,27 @@ export async function ensureEmployeeProfile(
   uid: string,
   email: string,
   displayName: string,
+  photoURL?: string | null,
 ): Promise<void> {
   if (email.toLowerCase() === ADMIN_EMAIL) return;
 
   const profileRef = doc(db, "users", uid);
   const existing = await getDoc(profileRef);
-  if (existing.exists()) return;
+  if (existing.exists()) {
+    if (photoURL && existing.data().photoURL !== photoURL) {
+      await updateDoc(profileRef, {
+        photoURL,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    return;
+  }
 
   await setDoc(profileRef, {
     uid,
     email,
     displayName,
+    ...(photoURL ? { photoURL } : {}),
     status: "pending",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

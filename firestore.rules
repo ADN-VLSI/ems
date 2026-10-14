@@ -29,7 +29,7 @@ service cloud.firestore {
           'uid', 'email', 'displayName', 'status', 'createdAt', 'updatedAt'
         ])
         && request.resource.data.keys().hasOnly([
-          'uid', 'email', 'displayName', 'status', 'createdAt', 'updatedAt'
+          'uid', 'email', 'displayName', 'status', 'createdAt', 'updatedAt', 'photoURL'
         ])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
@@ -37,63 +37,85 @@ service cloud.firestore {
         && request.resource.data.displayName.size() > 0
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt == request.time
-        && request.resource.data.updatedAt == request.time;
-
-      allow update: if isAdmin()
         && request.resource.data.updatedAt == request.time
         && (
-          (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status', 'updatedAt'
-            ])
-            && request.resource.data.status in ['approved', 'rejected']
-          )
+          !request.resource.data.keys().hasAny(['photoURL'])
           || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'leaveBalances', 'updatedAt'
-            ])
-            && request.resource.data.leaveBalances is map
+            request.resource.data.photoURL is string
+            && request.resource.data.photoURL.size() <= 2048
+            && request.resource.data.photoURL.matches('^https://([a-zA-Z0-9-]+\\.)*googleusercontent\\.com/.*$')
           )
-          || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'displayName', 'updatedAt'
-            ])
-            && request.resource.data.displayName is string
-            && request.resource.data.displayName.size() > 0
-          )
-          || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'displayName', 'jobTitle', 'department', 'phone', 'updatedAt'
-            ])
-            && request.resource.data.displayName is string
-            && request.resource.data.displayName.size() > 0
-            && request.resource.data.displayName.size() <= 120
-            && request.resource.data.jobTitle is string
-            && request.resource.data.jobTitle.size() <= 120
-            && request.resource.data.department is string
-            && request.resource.data.department.size() <= 120
-            && request.resource.data.phone is string
-            && request.resource.data.phone.size() <= 50
-          )
-          || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'displayName', 'officialEmail', 'githubId', 'trackRecords', 'phone', 'updatedAt'
-            ])
-            && request.resource.data.displayName is string
-            && request.resource.data.displayName.size() > 0
-            && request.resource.data.displayName.size() <= 120
-            && request.resource.data.officialEmail is string
-            && request.resource.data.officialEmail.size() <= 254
-            && (
-              request.resource.data.officialEmail == ''
-              || request.resource.data.officialEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+        );
+
+      allow update: if (
+          isAdmin()
+          && request.resource.data.updatedAt == request.time
+          && (
+            (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'status', 'updatedAt'
+              ])
+              && request.resource.data.status in ['approved', 'rejected']
             )
-            && request.resource.data.githubId is string
-            && request.resource.data.githubId.size() <= 39
-            && request.resource.data.trackRecords is list
-            && request.resource.data.phone is string
-            && request.resource.data.phone.size() <= 50
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'leaveBalances', 'updatedAt'
+              ])
+              && request.resource.data.leaveBalances is map
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'displayName', 'updatedAt'
+              ])
+              && request.resource.data.displayName is string
+              && request.resource.data.displayName.size() > 0
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'displayName', 'jobTitle', 'department', 'phone', 'updatedAt'
+              ])
+              && request.resource.data.displayName is string
+              && request.resource.data.displayName.size() > 0
+              && request.resource.data.displayName.size() <= 120
+              && request.resource.data.jobTitle is string
+              && request.resource.data.jobTitle.size() <= 120
+              && request.resource.data.department is string
+              && request.resource.data.department.size() <= 120
+              && request.resource.data.phone is string
+              && request.resource.data.phone.size() <= 50
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'displayName', 'officialEmail', 'githubId', 'trackRecords', 'phone', 'updatedAt'
+              ])
+              && request.resource.data.displayName is string
+              && request.resource.data.displayName.size() > 0
+              && request.resource.data.displayName.size() <= 120
+              && request.resource.data.officialEmail is string
+              && request.resource.data.officialEmail.size() <= 254
+              && (
+                request.resource.data.officialEmail == ''
+                || request.resource.data.officialEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+              )
+              && request.resource.data.githubId is string
+              && request.resource.data.githubId.size() <= 39
+              && request.resource.data.trackRecords is list
+              && request.resource.data.phone is string
+              && request.resource.data.phone.size() <= 50
+            )
           )
+        )
+        || (
+          signedIn()
+          && request.auth.uid == userId
+          && request.auth.token.email_verified == true
+          && request.resource.data.updatedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'photoURL', 'updatedAt'
+          ])
+          && request.resource.data.photoURL is string
+          && request.resource.data.photoURL.size() <= 2048
+          && request.resource.data.photoURL.matches('^https://([a-zA-Z0-9-]+\\.)*googleusercontent\\.com/.*$')
         );
 
       allow delete: if isAdmin();

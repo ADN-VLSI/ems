@@ -26,8 +26,6 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   FilePlus2,
   Fingerprint,
@@ -239,6 +237,26 @@ function Initials({ name }: { name: string }) {
   return <span className="avatar">{initials || "AD"}</span>;
 }
 
+function EmployeeAvatar({
+  name,
+  photoURL,
+}: {
+  name: string;
+  photoURL?: string;
+}) {
+  const [failedPhotoURL, setFailedPhotoURL] = useState<string | null>(null);
+  return photoURL && photoURL !== failedPhotoURL ? (
+    <img
+      className="avatar avatar-photo"
+      src={photoURL}
+      alt=""
+      onError={() => setFailedPhotoURL(photoURL)}
+    />
+  ) : (
+    <Initials name={name} />
+  );
+}
+
 function Button({
   children,
   variant = "primary",
@@ -436,10 +454,11 @@ function App() {
             currentUser.uid,
             currentUser.email,
             currentUser.displayName || currentUser.email.split("@")[0],
+            currentUser.photoURL,
           );
         } catch (profileError) {
           setError(
-            `We could not create your employee profile. ${friendlyError(profileError)}`,
+            `We could not sync your employee profile. ${friendlyError(profileError)}`,
           );
         }
       }
@@ -877,35 +896,55 @@ function App() {
     }
   }
 
-  async function recordAttendance(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!user) return;
-    const formElement = event.currentTarget;
-    const form = new FormData(formElement);
-    const employeeId = String(form.get("employeeId") ?? "");
-    const date = String(form.get("date") ?? "");
-    const status = String(form.get("status") ?? "") as AttendanceStatus;
-    const note = String(form.get("note") ?? "").trim();
-    const employee = approvedEmployees.find((item) => item.uid === employeeId);
-    if (!employee || !date || !status) {
-      setNotice({ kind: "error", message: "Select an employee, date, and attendance status." });
-      return;
+  async function recordAttendance(
+    employee: EmployeeProfile,
+    date: string,
+    status: AttendanceStatus,
+    note: string,
+  ): Promise<boolean> {
+    if (!user) return false;
+    if (!date || date > today) {
+      setNotice({ kind: "error", message: "Choose a valid attendance date no later than today." });
+      return false;
     }
 
     try {
-      await setDoc(doc(db, "attendance", `${employee.uid}_${date}`), {
+      if (!approvedEmployees.some((item) => item.uid === employee.uid)) {
+        setNotice({ kind: "error", message: "This employee is no longer approved for attendance." });
+        return false;
+      }
+      const recordId = `${employee.uid}_${date}`;
+      const existing = attendance.find((record) => record.id === recordId);
+      const savedNote = note.trim() || existing?.note || "";
+      await setDoc(doc(db, "attendance", recordId), {
         employeeId: employee.uid,
         employeeName: employee.displayName,
         date,
         status,
-        note,
+        note: savedNote,
         recordedAt: serverTimestamp(),
         recordedBy: user.email,
       });
-      formElement.reset();
-      setNotice({ kind: "success", message: `Attendance saved for ${employee.displayName}.` });
+      setAttendance((current) => [
+        {
+          id: recordId,
+          employeeId: employee.uid,
+          employeeName: employee.displayName,
+          date,
+          status,
+          note: savedNote,
+          recordedBy: user.email || "",
+        },
+        ...current.filter((record) => record.id !== recordId),
+      ]);
+      setNotice({
+        kind: "success",
+        message: `${employee.displayName} marked ${status} for ${formatDate(date)}.`,
+      });
+      return true;
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
+      return false;
     }
   }
 
@@ -1243,7 +1282,7 @@ function App() {
               employees={approvedEmployees}
               records={attendance}
               leaveRequests={leaveRequests}
-              onSubmit={recordAttendance}
+              onSetStatus={recordAttendance}
               onEditRecord={editAttendanceRecord}
               onDeleteRecord={deleteAttendanceRecord}
             />
@@ -1270,6 +1309,8 @@ function App() {
           {activeSection === "team" && isAdmin && (
             <TeamPage
               employees={employees}
+              attendance={attendance}
+              leaveRequests={leaveRequests}
               onApprove={changeApproval}
               onSaveLeaveBalances={updateLeaveBalances}
               onSaveEmployeeDetails={updateEmployeeDetails}
@@ -2342,7 +2383,7 @@ function AttendancePage({
   employees,
   records,
   leaveRequests,
-  onSubmit,
+  onSetStatus,
   onEditRecord,
   onDeleteRecord,
 }: {
@@ -2351,15 +2392,20 @@ function AttendancePage({
   employees: EmployeeProfile[];
   records: AttendanceRecord[];
   leaveRequests: LeaveRequest[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSetStatus: (
+    employee: EmployeeProfile,
+    date: string,
+    status: AttendanceStatus,
+    note: string,
+  ) => Promise<boolean>;
   onEditRecord: (record: AttendanceRecord) => void;
   onDeleteRecord: (record: AttendanceRecord) => void;
 }) {
   const [search, setSearch] = useState("");
-  const [calendarMonth, setCalendarMonth] = useState(
-    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-  );
-  const [calendarEmployeeId, setCalendarEmployeeId] = useState("");
+  const [attendanceDate, setAttendanceDate] = useState(today);
+  const [notesByEmployee, setNotesByEmployee] = useState<Record<string, string>>({});
+  const [savingEmployeeIds, setSavingEmployeeIds] = useState<Set<string>>(() => new Set());
+  const [openStatusMenuId, setOpenStatusMenuId] = useState<string | null>(null);
   const filteredRecords = useMemo(() => {
     const term = search.trim().toLowerCase();
     return records.filter((record) => {
@@ -2371,54 +2417,35 @@ function AttendancePage({
       return matchesSearch;
     });
   }, [records, search]);
-  const calendarRecords = useMemo(
+  const attendanceForDate = useMemo(
     () =>
-      isAdmin && calendarEmployeeId
-        ? records.filter((record) => record.employeeId === calendarEmployeeId)
-        : records,
-    [calendarEmployeeId, isAdmin, records],
-  );
-  const calendarLeaveRequests = useMemo(
-    () =>
-      leaveRequests.filter(
-        (request) =>
-          request.status === "approved" &&
-          (!isAdmin ||
-            !calendarEmployeeId ||
-            request.employeeId === calendarEmployeeId),
+      new Map(
+        records
+          .filter((record) => record.date === attendanceDate)
+          .map((record) => [record.employeeId, record]),
       ),
-    [calendarEmployeeId, isAdmin, leaveRequests],
+    [attendanceDate, records],
   );
-  const recordsByDate = useMemo(
-    () =>
-      calendarRecords.reduce<Record<string, AttendanceRecord[]>>((byDate, record) => {
-        (byDate[record.date] ??= []).push(record);
-        return byDate;
-      }, {}),
-    [calendarRecords],
-  );
-  const calendarDays = useMemo(() => {
-    const year = calendarMonth.getFullYear();
-    const month = calendarMonth.getMonth();
-    const firstWeekday = (new Date(year, month, 1).getDay() + 6) % 7;
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const cellCount = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
-
-    return Array.from({ length: cellCount }, (_, index) => {
-      const day = index - firstWeekday + 1;
-      return day > 0 && day <= daysInMonth ? day : null;
-    });
-  }, [calendarMonth]);
-  const monthLabel = new Intl.DateTimeFormat("en", {
-    month: "long",
-    year: "numeric",
-  }).format(calendarMonth);
-  const attendanceLabels: Record<AttendanceStatus, string> = {
-    present: "Present",
-    late: "Late",
-    absent: "Absent",
-    leave: "Leave",
-  };
+  async function chooseAttendanceStatus(
+    employee: EmployeeProfile,
+    status: AttendanceStatus,
+  ) {
+    setSavingEmployeeIds((current) => new Set(current).add(employee.uid));
+    try {
+      await onSetStatus(
+        employee,
+        attendanceDate,
+        status,
+        notesByEmployee[employee.uid] ?? attendanceForDate.get(employee.uid)?.note ?? "",
+      );
+    } finally {
+      setSavingEmployeeIds((current) => {
+        const next = new Set(current);
+        next.delete(employee.uid);
+        return next;
+      });
+    }
+  }
 
   return (
     <div className="content-stack">
@@ -2434,204 +2461,151 @@ function AttendancePage({
         </div>
         <span className="attendance-admin-badge"><ShieldCheck size={14} /> ADMIN ONLY</span>
       </section>
+      {!isAdmin && (
+        <section className="panel employee-attendance-panel">
+          <PanelHeading
+            title="Your attendance history"
+            subtitle="A day-by-day view of your attendance over the past 12 months. Weekends, public holidays, and days without a recorded status stay gray."
+          />
+          <div className="employee-attendance-list">
+            <EmployeeAttendanceHeatmap
+              employee={{
+                uid: user.uid,
+                displayName: user.displayName || user.email?.split("@")[0] || "Employee",
+                email: user.email || "",
+              }}
+              attendance={records}
+              leaveRequests={leaveRequests}
+            />
+          </div>
+        </section>
+      )}
       {isAdmin && (
         <section className="panel">
-          <PanelHeading title="Record attendance" subtitle="Add or correct a day's attendance for an approved employee." />
+          <PanelHeading title="Record attendance" subtitle="Choose a date, then click an employee’s status to save it immediately." />
           {employees.length ? (
-            <form className="attendance-form" onSubmit={onSubmit}>
-              <label className="field">
-                Employee
-                <select name="employeeId" required defaultValue="">
-                  <option value="" disabled>Select an employee</option>
-                  {employees.map((employee) => (
-                    <option value={employee.uid} key={employee.uid}>
-                      {employee.displayName} · {employee.email}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="field">
-                Date
-                <input name="date" type="date" required defaultValue={today} max={today} />
-              </label>
-              <label className="field">
-                Status
-                <select name="status" required defaultValue="">
-                  <option value="" disabled>Select status</option>
-                  <option value="present">Present</option>
-                  <option value="late">Late</option>
-                  <option value="absent">Absent</option>
-                  <option value="leave">Leave</option>
-                </select>
-              </label>
-              <label className="field">
-                Note <span className="optional-label">Optional</span>
-                <input name="note" maxLength={240} placeholder="Add a note…" />
-              </label>
-              <Button type="submit"><Check size={16} /> Save attendance</Button>
-            </form>
+            <div className="attendance-roster-form">
+              <div className="attendance-roster-controls">
+                <label className="field">
+                  Date
+                  <input
+                    type="date"
+                    value={attendanceDate}
+                    max={today}
+                    onChange={(event) => {
+                      setAttendanceDate(event.target.value);
+                      setNotesByEmployee({});
+                      setOpenStatusMenuId(null);
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="table-wrap attendance-roster-wrap">
+                <table className="attendance-roster-table">
+                  <thead>
+                    <tr><th>EMPLOYEE</th><th>STATUS</th><th>NOTE <span className="optional-label">OPTIONAL</span></th></tr>
+                  </thead>
+                  <tbody>
+                    {employees.map((employee) => {
+                      const existing = attendanceForDate.get(employee.uid);
+                      const status = existing?.status;
+                      const isSaving = savingEmployeeIds.has(employee.uid);
+                      return (
+                        <tr key={employee.uid}>
+                          <td>
+                            <div className="attendance-roster-person">
+                              <div
+                                className={`attendance-roster-avatar-picker${openStatusMenuId === employee.uid ? " attendance-roster-avatar-picker-open" : ""}`}
+                                onMouseEnter={() => setOpenStatusMenuId(employee.uid)}
+                                onMouseLeave={() => setOpenStatusMenuId(null)}
+                                onFocus={() => setOpenStatusMenuId(employee.uid)}
+                                onBlur={(event) => {
+                                  if (!event.currentTarget.contains(event.relatedTarget)) {
+                                    setOpenStatusMenuId(null);
+                                  }
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  className="attendance-roster-avatar-button"
+                                  aria-label={`Choose attendance status for ${employee.displayName}`}
+                                  aria-expanded={openStatusMenuId === employee.uid}
+                                  aria-controls={`attendance-quick-status-${employee.uid}`}
+                                  onClick={() =>
+                                    setOpenStatusMenuId((current) =>
+                                      current === employee.uid ? null : employee.uid,
+                                    )
+                                  }
+                                >
+                                  <EmployeeAvatar
+                                    name={employee.displayName}
+                                    photoURL={employee.photoURL}
+                                  />
+                                </button>
+                                <div
+                                  className="attendance-roster-quick-status"
+                                  id={`attendance-quick-status-${employee.uid}`}
+                                  role="group"
+                                  aria-label={`Attendance status for ${employee.displayName}`}
+                                >
+                                  {isSaving ? (
+                                    <span className="attendance-roster-saving">Saving…</span>
+                                  ) : ([
+                                    ["present", "Present"],
+                                    ["late", "Late"],
+                                    ["absent", "Absent"],
+                                    ["leave", "Leave"],
+                                  ] as const).map(([value, label]) => (
+                                    <button
+                                      type="button"
+                                      className={`attendance-quick-status attendance-quick-status-${value}`}
+                                      key={value}
+                                      disabled={isSaving}
+                                      aria-pressed={status === value}
+                                      onClick={() => void chooseAttendanceStatus(employee, value)}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <span><strong>{employee.displayName}</strong></span>
+                            </div>
+                          </td>
+                          <td>
+                            {isSaving
+                              ? <span className="attendance-roster-saving">Saving…</span>
+                              : status
+                              ? <StatusPill status={status} />
+                              : <span className="attendance-roster-unmarked">Not marked</span>}
+                          </td>
+                          <td>
+                            <input
+                              className="attendance-roster-note"
+                              maxLength={240}
+                              value={notesByEmployee[employee.uid] ?? existing?.note ?? ""}
+                              onChange={(event) =>
+                                setNotesByEmployee((current) => ({
+                                  ...current,
+                                  [employee.uid]: event.target.value,
+                                }))
+                              }
+                              placeholder="Add a note…"
+                              aria-label={`Optional attendance note for ${employee.displayName}; click a status to save`}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           ) : (
             <EmptyState icon={<Users size={20} />} title="No approved employees yet" text="Approve employee accounts before recording attendance." />
           )}
         </section>
       )}
-      <section className="panel">
-        <div className="panel-heading attendance-calendar-heading">
-          <div>
-            <h2>Attendance calendar</h2>
-            <p>
-              {isAdmin
-                ? "View attendance by month. Choose an employee to see their individual calendar."
-                : "Your recorded attendance for each day."}
-            </p>
-          </div>
-          <div className="attendance-calendar-controls">
-            {isAdmin && (
-              <label className="filter-select">
-                <span className="sr-only">Employee calendar</span>
-                <select
-                  aria-label="Filter calendar by employee"
-                  value={calendarEmployeeId}
-                  onChange={(event) => setCalendarEmployeeId(event.target.value)}
-                >
-                  <option value="">All employees</option>
-                  {employees.map((employee) => (
-                    <option value={employee.uid} key={employee.uid}>
-                      {employee.displayName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <div className="attendance-calendar-navigation">
-              <button
-                className="icon-button"
-                type="button"
-                aria-label="Previous month"
-                onClick={() =>
-                  setCalendarMonth(
-                    (month) =>
-                      new Date(month.getFullYear(), month.getMonth() - 1, 1),
-                  )
-                }
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <strong aria-live="polite">{monthLabel}</strong>
-              <button
-                className="icon-button"
-                type="button"
-                aria-label="Next month"
-                onClick={() =>
-                  setCalendarMonth(
-                    (month) =>
-                      new Date(month.getFullYear(), month.getMonth() + 1, 1),
-                  )
-                }
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="attendance-calendar-wrap">
-          <table className="attendance-calendar" aria-label={`Attendance for ${monthLabel}`}>
-            <thead>
-              <tr>
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((weekday) => (
-                  <th scope="col" key={weekday}>{weekday}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from(
-                { length: calendarDays.length / 7 },
-                (_, week) => (
-                  <tr key={week}>
-                    {calendarDays.slice(week * 7, week * 7 + 7).map((day, index) => {
-                      if (!day) return <td aria-hidden="true" key={index} />;
-                      const date = `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                      const dayRecords = recordsByDate[date] ?? [];
-                      const dayLeaves = calendarLeaveRequests.filter(
-                        (request) =>
-                          request.startDate <= date && request.endDate >= date,
-                      );
-                      const visibleDayRecords = dayRecords.filter(
-                        (record) =>
-                          record.status !== "leave" ||
-                          !dayLeaves.some(
-                            (request) =>
-                              request.employeeId === record.employeeId,
-                          ),
-                      );
-                      const calendarEvents = [
-                        ...dayLeaves.map((request) => ({
-                          id: `leave-${request.id}`,
-                          className: `attendance-event-${leaveTypeTone(request.type)}-leave`,
-                          label:
-                            isAdmin && !calendarEmployeeId
-                              ? `${request.employeeName.split(" ")[0]} · ${request.type}`
-                              : request.type,
-                          title: `${request.employeeName}: ${request.type} (approved)${request.reason ? ` — ${request.reason}` : ""}`,
-                        })),
-                        ...visibleDayRecords.map((record) => ({
-                          id: record.id,
-                          className: `attendance-event-${record.status}`,
-                          label:
-                            isAdmin && !calendarEmployeeId
-                              ? `${record.employeeName.split(" ")[0]} · ${attendanceLabels[record.status]}`
-                              : attendanceLabels[record.status],
-                          title: `${record.employeeName}: ${attendanceLabels[record.status]}${record.note ? ` — ${record.note}` : ""}`,
-                        })),
-                      ];
-
-                      return (
-                        <td key={date} aria-label={`${formatDate(date)}${calendarEvents.length ? `, ${calendarEvents.length} calendar record${calendarEvents.length === 1 ? "" : "s"}` : ""}`}>
-                          <span className={`attendance-calendar-day${date === today ? " attendance-calendar-today" : ""}`}>
-                            {day}
-                          </span>
-                          <div className="attendance-calendar-events">
-                            {calendarEvents.slice(0, 3).map((event) => (
-                              <span
-                                className={`attendance-event ${event.className}`}
-                                key={event.id}
-                                title={event.title}
-                              >
-                                {event.label}
-                              </span>
-                            ))}
-                            {calendarEvents.length > 3 && (
-                              <span className="attendance-calendar-more">
-                                +{calendarEvents.length - 3} more
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="attendance-calendar-legend" aria-label="Attendance status legend">
-          {(["present", "late", "absent"] as const).map((status) => (
-            <span key={status}>
-              <i className={`attendance-legend-dot attendance-legend-${status}`} />
-              {attendanceLabels[status]}
-            </span>
-          ))}
-          <span>
-            <i className="attendance-legend-dot attendance-legend-annual-leave" />
-            Annual leave
-          </span>
-          <span>
-            <i className="attendance-legend-dot attendance-legend-sick-leave" />
-            Sick leave
-          </span>
-        </div>
-      </section>
       <section className="panel">
         <div className="panel-heading panel-heading-search">
           <div>
@@ -2710,12 +2684,16 @@ function AttendancePage({
 
 function TeamPage({
   employees,
+  attendance,
+  leaveRequests,
   onApprove,
   onSaveLeaveBalances,
   onSaveEmployeeDetails,
   onDeleteEmployee,
 }: {
   employees: EmployeeProfile[];
+  attendance: AttendanceRecord[];
+  leaveRequests: LeaveRequest[];
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
   onSaveLeaveBalances: (
     employee: EmployeeProfile,
@@ -2836,6 +2814,32 @@ function TeamPage({
           <EmptyState icon={<Users size={20} />} title="No employee accounts" text="New Google sign-ins will appear here for approval." />
         )}
       </section>
+      <section className="panel employee-attendance-panel">
+        <PanelHeading
+          title="Employee attendance"
+          subtitle="A day-by-day view of each approved employee over the past 12 months. Weekends, public holidays, and days without a recorded status stay gray."
+        />
+        {employees.some((employee) => employee.status === "approved") ? (
+          <div className="employee-attendance-list">
+            {employees
+              .filter((employee) => employee.status === "approved")
+              .map((employee) => (
+                <EmployeeAttendanceHeatmap
+                  key={employee.uid}
+                  employee={employee}
+                  attendance={attendance.filter((record) => record.employeeId === employee.uid)}
+                  leaveRequests={leaveRequests.filter((request) => request.employeeId === employee.uid)}
+                />
+              ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={<CalendarCheck2 size={20} />}
+            title="No approved employees yet"
+            text="Attendance histories will appear here after employee accounts are approved."
+          />
+        )}
+      </section>
       {selectedEmployee && (
         <EmployeeProfileDetailsPanel
           key={selectedEmployee.uid}
@@ -2849,6 +2853,143 @@ function TeamPage({
         <p><strong>Admin-only controls.</strong> Only the ADN administrator can change employee access or manually set annual and sick balances for each fiscal year.</p>
       </section>
     </div>
+  );
+}
+
+function EmployeeAttendanceHeatmap({
+  employee,
+  attendance,
+  leaveRequests,
+}: {
+  employee: Pick<EmployeeProfile, "uid" | "displayName" | "email">;
+  attendance: AttendanceRecord[];
+  leaveRequests: LeaveRequest[];
+}) {
+  const { weeks, statusByDate } = useMemo(() => {
+    const now = new Date();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startDate = new Date(todayDate);
+    startDate.setDate(startDate.getDate() - 364);
+    startDate.setDate(startDate.getDate() - ((startDate.getDay() + 6) % 7));
+
+    const weeks = Array.from({ length: 53 }, (_, weekIndex) =>
+      Array.from({ length: 7 }, (_, dayIndex) => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + weekIndex * 7 + dayIndex);
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      }),
+    );
+    const statusByDate: Record<string, "present" | "late" | "absent" | "annual-leave" | "sick-leave" | "leave"> = {};
+    attendance.forEach((record) => {
+      if (record.date <= today && record.status !== "leave") {
+        statusByDate[record.date] = record.status;
+      } else if (record.date <= today && record.status === "leave") {
+        statusByDate[record.date] = "leave";
+      }
+    });
+    leaveRequests.forEach((request) => {
+      if (request.status !== "approved") return;
+      const status = request.type === "Annual leave"
+        ? "annual-leave"
+        : request.type === "Sick leave"
+          ? "sick-leave"
+          : null;
+      if (!status) return;
+      const from = request.startDate > weeks[0][0] ? request.startDate : weeks[0][0];
+      const to = request.endDate < today ? request.endDate : today;
+      for (let date = new Date(`${from}T00:00:00`); ; date.setDate(date.getDate() + 1)) {
+        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+        if (dateKey > to) break;
+        statusByDate[dateKey] = status;
+      }
+    });
+
+    return { weeks, statusByDate };
+  }, [attendance, leaveRequests]);
+
+  const monthLabels = weeks.map((week, index) => {
+    const weekStart = new Date(`${week[0]}T00:00:00`);
+    const previousWeekMonth = index > 0
+      ? new Date(`${weeks[index - 1][0]}T00:00:00`).getMonth()
+      : -1;
+    return weekStart.getMonth() !== previousWeekMonth
+      ? new Intl.DateTimeFormat("en", { month: "short" }).format(weekStart)
+      : "";
+  });
+  const statusLabels: Record<string, string> = {
+    present: "Present",
+    late: "Late",
+    absent: "Absent",
+    "annual-leave": "Annual Leave",
+    "sick-leave": "Sick Leave",
+    leave: "Leave",
+  };
+
+  return (
+    <article className="employee-attendance">
+      <div className="employee-attendance-heading">
+        <div className="employee-attendance-person">
+          <Initials name={employee.displayName} />
+          <span><strong>{employee.displayName}</strong><small>{employee.email}</small></span>
+        </div>
+      </div>
+      <div className="employee-heatmap-scroll">
+        <div className="employee-heatmap">
+          <div className="employee-heatmap-months" aria-hidden="true">
+            <span />
+            <div className="employee-heatmap-month-labels">
+              {monthLabels.map((month, index) => <span key={index}>{month}</span>)}
+            </div>
+          </div>
+          <div className="employee-heatmap-days">
+            <div className="employee-heatmap-weekday-labels" aria-hidden="true">
+              <span>Mon</span><span /><span>Wed</span><span /><span>Fri</span><span /><span />
+            </div>
+            <div className="employee-heatmap-weeks">
+              {weeks.map((week, weekIndex) => (
+                <div className="employee-heatmap-week" key={weekIndex}>
+                  {week.map((date) => {
+                    const weekday = new Date(`${date}T00:00:00`).getDay();
+                    const status = statusByDate[date];
+                    const isWeekend = weekday === 5 || weekday === 6;
+                    const tone = isWeekend ? "weekend" : status ?? "empty";
+                    const label = isWeekend
+                      ? "Weekend"
+                      : status
+                        ? statusLabels[status]
+                        : "No attendance recorded";
+                    return (
+                      <span
+                        className={`employee-heatmap-cell employee-heatmap-${tone}`}
+                        key={date}
+                        title={`${formatDate(date)} · ${label}`}
+                        aria-label={`${formatDate(date)}: ${label}`}
+                        role="img"
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="employee-heatmap-legend" aria-label="Attendance status legend">
+        {([
+          ["present", "Present"],
+          ["late", "Late"],
+          ["absent", "Absent"],
+          ["annual-leave", "Annual Leave"],
+          ["sick-leave", "Sick Leave"],
+          ["empty", "Weekend / public holiday / no record"],
+        ] as const).map(([tone, label]) => (
+          <span key={tone}>
+            <i className={`employee-heatmap-cell employee-heatmap-${tone}`} />
+            {label}
+          </span>
+        ))}
+      </div>
+    </article>
   );
 }
 
