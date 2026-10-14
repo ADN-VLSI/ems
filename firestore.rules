@@ -187,6 +187,84 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /concerns/{concernId} {
+      allow get, list: if isAdmin()
+        || (isApprovedEmployee() && resource.data.employeeId == request.auth.uid);
+
+      allow create: if isApprovedEmployee()
+        && request.resource.data.keys().hasOnly([
+          'employeeId', 'employeeEmail', 'employeeName', 'subject', 'body',
+          'status', 'lastMessageBy', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'employeeId', 'employeeEmail', 'employeeName', 'subject', 'body',
+          'status', 'lastMessageBy', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.employeeId == request.auth.uid
+        && request.resource.data.employeeEmail == request.auth.token.email
+        && request.resource.data.employeeName is string
+        && request.resource.data.employeeName.size() <= 120
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() >= 3
+        && request.resource.data.subject.size() <= 120
+        && request.resource.data.body is string
+        && request.resource.data.body.size() >= 3
+        && request.resource.data.body.size() <= 2000
+        && request.resource.data.status == 'open'
+        && request.resource.data.lastMessageBy == 'employee'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'lastMessageBy', 'updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && request.resource.data.status in ['open', 'resolved']
+            && request.resource.data.lastMessageBy == 'admin'
+          )
+          || (
+            isApprovedEmployee()
+            && resource.data.employeeId == request.auth.uid
+            && request.resource.data.status == 'open'
+            && request.resource.data.lastMessageBy == 'employee'
+          )
+        );
+
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow delete: if isAdmin();
+
+        allow get, list: if isAdmin()
+          || (
+            isApprovedEmployee()
+            && get(/databases/$(database)/documents/concerns/$(concernId)).data.employeeId == request.auth.uid
+          );
+
+        allow create: if request.resource.data.keys().hasOnly([
+            'authorId', 'authorRole', 'text', 'createdAt'
+          ])
+          && request.resource.data.keys().hasAll([
+            'authorId', 'authorRole', 'text', 'createdAt'
+          ])
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time
+          && (
+            (isAdmin() && request.resource.data.authorRole == 'admin')
+            || (
+              isApprovedEmployee()
+              && request.resource.data.authorRole == 'employee'
+              && get(/databases/$(database)/documents/concerns/$(concernId)).data.employeeId == request.auth.uid
+            )
+          );
+      }
+    }
+
     match /notices/{noticeId} {
       allow get, list: if isAdmin() || isApprovedEmployee();
 

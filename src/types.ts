@@ -65,4 +65,34 @@ export interface NoticePost {
   updatedBy?: string;
 }
 
-export type PortalSection = "overview" | "leaves" | "attendance" | "profile" | "team";
+export type ConcernStatus = "open" | "resolved";
+export type ConcernAuthorRole = "employee" | "admin";
+
+export interface Concern {
+  id: string;
+  employeeId: string;
+  employeeEmail: string;
+  employeeName: string;
+  subject: string;
+  body: string;
+  status: ConcernStatus;
+  lastMessageBy: ConcernAuthorRole;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export interface ConcernMessage {
+  id: string;
+  authorId: string;
+  authorRole: ConcernAuthorRole;
+  text: string;
+  createdAt?: Timestamp;
+}
+
+export type PortalSection =
+  | "overview"
+  | "leaves"
+  | "attendance"
+  | "concerns"
+  | "profile"
+  | "team";

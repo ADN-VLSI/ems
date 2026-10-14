@@ -35,6 +35,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareText,
   Pencil,
   Plus,
   Search,
@@ -49,15 +50,18 @@ import { auth, db, googleProvider, ADMIN_EMAIL } from "./firebase";
 import {
   ensureEmployeeProfile,
   listenToAttendance,
+  listenToConcerns,
   listenToEmployees,
   listenToLeaveRequests,
   listenToNotices,
   listenToProfile,
 } from "./data";
+import { ConcernsPage, needsAdminReply } from "./Concerns";
 import type {
   ApprovalStatus,
   AttendanceRecord,
   AttendanceStatus,
+  Concern,
   EmployeeProfile,
   LeaveRequest,
   LeaveStatus,
@@ -79,6 +83,7 @@ const sectionTitles: Record<PortalSection, string> = {
   overview: "Overview",
   leaves: "Leave management",
   attendance: "Attendance",
+  concerns: "Concerns",
   profile: "My profile",
   team: "Employee directory",
 };
@@ -379,6 +384,7 @@ function App() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [boardNotices, setBoardNotices] = useState<NoticePost[]>([]);
+  const [concerns, setConcerns] = useState<Concern[]>([]);
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
 
@@ -432,6 +438,7 @@ function App() {
       setLeaveRequests([]);
       setAttendance([]);
       setBoardNotices([]);
+      setConcerns([]);
       return;
     }
 
@@ -450,6 +457,12 @@ function App() {
       fail,
     );
     const stopNotices = listenToNotices(setBoardNotices, fail);
+    const stopConcerns = listenToConcerns(
+      user.uid,
+      Boolean(isAdmin),
+      setConcerns,
+      fail,
+    );
     const stopEmployees = isAdmin
       ? listenToEmployees(setEmployees, fail)
       : () => setEmployees([]);
@@ -458,6 +471,7 @@ function App() {
       stopLeaves();
       stopAttendance();
       stopNotices();
+      stopConcerns();
       stopEmployees();
     };
   }, [user, isAdmin, profile?.status]);
@@ -1007,6 +1021,16 @@ function App() {
           >
             Attendance
           </NavButton>
+          <NavButton
+            icon={<MessageSquareText size={18} />}
+            active={activeSection === "concerns"}
+            onClick={() => { setSection("concerns"); setMobileNavOpen(false); }}
+          >
+            Concerns
+            {isAdmin && concerns.some(needsAdminReply) && (
+              <span className="nav-count">{concerns.filter(needsAdminReply).length}</span>
+            )}
+          </NavButton>
           {!isAdmin && (
             <NavButton
               icon={<UserRound size={18} />}
@@ -1100,7 +1124,11 @@ function App() {
                       ? isAdmin
                         ? "Record daily attendance for your approved team."
                         : "Your attendance is recorded by the ADN administrator."
-                      : activeSection === "profile"
+                        : activeSection === "concerns"
+                          ? isAdmin
+                            ? "Private one-to-one conversations with employees."
+                            : "Raise a concern privately with the administrator."
+                        : activeSection === "profile"
                         ? "Review your personal employee details."
                         : "Manage access and keep your employee list up to date."}
               </p>
@@ -1176,6 +1204,16 @@ function App() {
               onSubmit={recordAttendance}
               onEditRecord={editAttendanceRecord}
               onDeleteRecord={deleteAttendanceRecord}
+            />
+          )}
+          {activeSection === "concerns" && (
+            <ConcernsPage
+              isAdmin={Boolean(isAdmin)}
+              userId={user.uid}
+              userEmail={user.email ?? ""}
+              userName={user.displayName || user.email?.split("@")[0] || "Employee"}
+              concerns={concerns}
+              onNotice={(kind, message) => setNotice({ kind, message })}
             />
           )}
           {activeSection === "team" && isAdmin && (

@@ -2825,3 +2825,134 @@ tbody tr:last-child td {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Concerns */
+.concerns-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.concerns-side {
+  display: grid;
+  gap: 18px;
+}
+
+.concern-filter {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.concern-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.concern-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.concern-item:hover,
+.concern-item-active {
+  border-color: var(--blue);
+  background: var(--blue-pale);
+}
+
+.concern-item-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.concern-item-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.concern-item-main small {
+  color: var(--muted);
+}
+
+.thread-messages {
+  display: grid;
+  gap: 10px;
+  max-height: 460px;
+  overflow-y: auto;
+  padding: 4px 2px 12px;
+}
+
+.thread-bubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.thread-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.thread-bubble small {
+  color: var(--muted);
+}
+
+.bubble-me {
+  justify-self: end;
+  background: var(--blue-pale);
+}
+
+.bubble-them {
+  justify-self: start;
+  background: var(--canvas);
+}
+
+.thread-reply {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.thread-reply textarea {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+}
+
+@media (max-width: 900px) {
+  .concerns-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.concern-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

@@ -1,13 +1,17 @@
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
+  writeBatch,
   type DocumentData,
   type QuerySnapshot,
   type Unsubscribe,
@@ -15,6 +19,10 @@ import {
 import { ADMIN_EMAIL, db } from "./firebase";
 import type {
   AttendanceRecord,
+  Concern,
+  ConcernAuthorRole,
+  ConcernMessage,
+  ConcernStatus,
   EmployeeProfile,
   LeaveRequest,
   NoticePost,
@@ -111,6 +119,103 @@ export function listenToAttendance(
     (snapshot) => next(asRecords<AttendanceRecord>(snapshot)),
     fail,
   );
+}
+
+export function listenToConcerns(
+  uid: string,
+  isAdmin: boolean,
+  next: (concerns: Concern[]) => void,
+  fail: (error: Error) => void,
+): Unsubscribe {
+  const concerns = collection(db, "concerns");
+  const concernQuery = isAdmin
+    ? concerns
+    : query(concerns, where("employeeId", "==", uid));
+
+  return onSnapshot(
+    concernQuery,
+    (snapshot) =>
+      next(
+        asRecords<Concern>(snapshot).sort(
+          (a, b) => (b.updatedAt?.toMillis() ?? Date.now()) - (a.updatedAt?.toMillis() ?? Date.now()),
+        ),
+      ),
+    fail,
+  );
+}
+
+export function listenToConcernMessages(
+  concernId: string,
+  next: (messages: ConcernMessage[]) => void,
+  fail: (error: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    query(collection(db, "concerns", concernId, "messages"), orderBy("createdAt", "asc")),
+    (snapshot) => next(asRecords<ConcernMessage>(snapshot)),
+    fail,
+  );
+}
+
+export async function createConcern(
+  user: { uid: string; email: string; name: string },
+  subject: string,
+  body: string,
+): Promise<void> {
+  await addDoc(collection(db, "concerns"), {
+    employeeId: user.uid,
+    employeeEmail: user.email,
+    employeeName: user.name,
+    subject: subject.trim(),
+    body: body.trim(),
+    status: "open",
+    lastMessageBy: "employee",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function replyToConcern(
+  concernId: string,
+  authorId: string,
+  role: ConcernAuthorRole,
+  text: string,
+  status: ConcernStatus,
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.set(doc(collection(db, "concerns", concernId, "messages")), {
+    authorId,
+    authorRole: role,
+    text: text.trim(),
+    createdAt: serverTimestamp(),
+  });
+  batch.update(doc(db, "concerns", concernId), {
+    status,
+    lastMessageBy: role,
+    updatedAt: serverTimestamp(),
+  });
+  await batch.commit();
+}
+
+export async function setConcernStatus(
+  concernId: string,
+  status: ConcernStatus,
+): Promise<void> {
+  await updateDoc(doc(db, "concerns", concernId), {
+    status,
+    lastMessageBy: "admin",
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteConcern(concernId: string): Promise<void> {
+  const messages = await getDocs(collection(db, "concerns", concernId, "messages"));
+  const refs = [...messages.docs.map((item) => item.ref), doc(db, "concerns", concernId)];
+  // Replies go first so a partial failure never leaves orphaned messages behind a missing concern.
+  for (let index = 0; index < refs.length; index += 400) {
+    const batch = writeBatch(db);
+    refs.slice(index, index + 400).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
 }
 
 export function listenToNotices(
