@@ -2767,6 +2767,7 @@ function AttendancePage({
   const recordPagination = usePagination(
     sortedRecords,
     `${search}:${recordStatusFilter}:${recordFromDate}:${recordToDate}:${recordSort}:${recordSortDirection}`,
+    20,
   );
   async function chooseAttendanceStatus(
     employee: EmployeeProfile,

@@ -88,6 +88,7 @@ export function usePagination<T>(
     total: items.length,
     start: items.length ? startIndex + 1 : 0,
     end: Math.min(startIndex + pageSize, items.length),
+    pageSize,
     setPage,
   };
 }
@@ -98,6 +99,7 @@ export function PaginationControls({
   total,
   start,
   end,
+  pageSize = PAGE_SIZE,
   setPage,
 }: {
   page: number;
@@ -105,9 +107,10 @@ export function PaginationControls({
   total: number;
   start: number;
   end: number;
+  pageSize?: number;
   setPage: (page: number) => void;
 }) {
-  if (total <= PAGE_SIZE) return null;
+  if (total <= pageSize) return null;
 
   return (
     <nav className="pagination-controls" aria-label="List pages">
