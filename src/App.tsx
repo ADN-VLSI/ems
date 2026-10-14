@@ -1239,7 +1239,27 @@ function Overview({
     (record) => record.date === today && ["present", "late"].includes(record.status),
   ).length;
   const currentFiscalYear = fiscalYearStartForDate(today);
+  const currentFiscalYearStartDate = `${currentFiscalYear}-07-01`;
+  const currentFiscalYearEndDate = `${currentFiscalYear + 1}-06-30`;
   const currentLeaveBalance = profile?.leaveBalances?.[String(currentFiscalYear)];
+  const unnotifiedAbsences = attendance
+    .filter(
+      (record) =>
+        record.employeeId === user.uid &&
+        record.status === "absent" &&
+        record.date >= currentFiscalYearStartDate &&
+        record.date <= currentFiscalYearEndDate,
+    )
+    .filter(
+      (record) =>
+        !requests.some(
+          (request) =>
+            request.employeeId === user.uid &&
+            request.startDate <= record.date &&
+            request.endDate >= record.date,
+        ),
+    )
+    .sort((first, second) => second.date.localeCompare(first.date));
   const leaveSummary = (type: LeaveType, balance: number | undefined) => {
     const taken = requests.reduce(
       (total, request) =>
@@ -1560,6 +1580,20 @@ function Overview({
                   {todayAttendanceRecord
                     ? `Recorded as ${todayAttendanceRecord.status}.`
                     : "Your administrator has not recorded it yet."}
+                </small>
+              </article>
+              <article
+                className={`leave-overview-card leave-overview-absence ${unnotifiedAbsences.length ? "leave-overview-absence-alert" : ""}`}
+              >
+                <strong>Unnotified absences</strong>
+                <div className="leave-overview-attendance-status">
+                  <b>{unnotifiedAbsences.length}</b>
+                  <small>this fiscal year</small>
+                </div>
+                <small>
+                  {unnotifiedAbsences.length
+                    ? `Most recent: ${formatDate(unnotifiedAbsences[0].date)} · no leave request on file.`
+                    : "No unnotified absences this fiscal year."}
                 </small>
               </article>
             </div>

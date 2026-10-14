@@ -1145,6 +1145,10 @@ a {
   background: #fff;
 }
 
+.notice-board {
+  margin-bottom: 16px;
+}
+
 .panel-heading {
   display: flex;
   min-height: 39px;
@@ -1644,7 +1648,7 @@ tbody tr:last-child td {
 
 .leave-overview-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1707,6 +1711,14 @@ tbody tr:last-child td {
 
 .leave-overview-attendance-counted {
   border-left-color: #438766;
+}
+
+.leave-overview-absence {
+  border-left: 3px solid #438766;
+}
+
+.leave-overview-absence-alert {
+  border-left-color: #b47a22;
 }
 
 .leave-overview-attendance-status {
@@ -2355,11 +2367,15 @@ tbody tr:last-child td {
   }
 
   .leave-overview-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 700px) {
+  .leave-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
   .track-record-row {
     grid-template-columns: repeat(2, minmax(0, 1fr)) 34px;
   }
