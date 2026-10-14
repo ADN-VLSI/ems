@@ -2237,6 +2237,76 @@ tbody tr:last-child td {
   gap: 10px;
 }
 
+.employee-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+
+.employee-detail {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e9edf2;
+  border-radius: 9px;
+  background: #fcfdff;
+}
+
+.employee-detail dt {
+  color: #778294;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.employee-detail dd {
+  overflow-wrap: anywhere;
+  margin: 5px 0 0;
+  color: #344154;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.employee-track-records {
+  margin-top: 18px;
+}
+
+.employee-track-records h3 {
+  margin: 0 0 10px;
+  color: #344154;
+  font-size: 14px;
+}
+
+.employee-track-records ul {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.employee-track-records li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #e9edf2;
+  border-radius: 9px;
+  background: #fcfdff;
+  color: #344154;
+  font-size: 13.5px;
+}
+
+.employee-track-records li span,
+.employee-track-records > p {
+  color: #778294;
+}
+
+.employee-track-records > p {
+  margin: 0;
+  font-size: 13.5px;
+}
+
 .track-record-row {
   display: grid;
   grid-template-columns: minmax(180px, 1.4fr) repeat(2, minmax(145px, 1fr)) 34px;

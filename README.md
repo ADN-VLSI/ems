@@ -8,8 +8,9 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 - New employees stay pending until the ADN administrator (`adn.semicon@gmail.com`) approves them.
 - Approved employees can submit leave requests and view their decisions.
 - Employees can view attendance; only the administrator can add or change attendance records.
+- Approved employees can view their own profile details in the My profile section, including phone, GitHub ID, and track records.
 - Administrators can edit employee display names and leave requests, and can edit or delete leave and attendance records. Deleting an employee profile also deletes their associated leave and attendance records, but does not delete their Google sign-in account.
-- The overview includes an administrator-managed notice board and individual employee profiles with editable job title, department, and phone details.
+- The overview includes an administrator-managed notice board and employee profiles with editable display name, GitHub ID, track records, and phone details.
 - Firestore security rules enforce these permissions independently of the UI.
 
 ## Local development
@@ -64,7 +65,7 @@ The deployed site will be available at `https://adn-vlsi.github.io/ems/`.
 
 ## Data model
 
-- `users/{uid}`: verified email, display name, job title, department, phone, and admin-controlled approval status.
+- `users/{uid}`: verified email, display name, GitHub ID, track records, phone, and admin-controlled approval status.
 - `leaveRequests/{requestId}`: employee-owned submissions and admin-controlled decisions.
 - `attendance/{uid_YYYY-MM-DD}`: daily status entered by the administrator.
 - `notices/{noticeId}`: announcements published and managed by the administrator.

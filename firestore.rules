@@ -75,6 +75,19 @@ service cloud.firestore {
             && request.resource.data.phone is string
             && request.resource.data.phone.size() <= 50
           )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'displayName', 'githubId', 'trackRecords', 'phone', 'updatedAt'
+            ])
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
+            && request.resource.data.displayName.size() <= 120
+            && request.resource.data.githubId is string
+            && request.resource.data.githubId.size() <= 39
+            && request.resource.data.trackRecords is list
+            && request.resource.data.phone is string
+            && request.resource.data.phone.size() <= 50
+          )
         );
 
       allow delete: if isAdmin();

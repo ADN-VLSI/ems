@@ -65,4 +65,4 @@ export interface NoticePost {
   updatedBy?: string;
 }
 
-export type PortalSection = "overview" | "leaves" | "attendance" | "team";
+export type PortalSection = "overview" | "leaves" | "attendance" | "profile" | "team";

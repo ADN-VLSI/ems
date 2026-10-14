@@ -27,7 +27,7 @@ def main():
     print("Press Ctrl+C to stop the development server.")
     try:
         return subprocess.run(
-            [node, str(VITE_ENTRY), "--host", "127.0.0.1", "--open"],
+            [node, str(VITE_ENTRY), "--host", "localhost", "--open"],
             cwd=PROJECT_ROOT,
             check=False,
         ).returncode

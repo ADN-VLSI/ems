@@ -41,6 +41,7 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  UserRound,
   X,
   XCircle,
 } from "lucide-react";
@@ -78,6 +79,7 @@ const sectionTitles: Record<PortalSection, string> = {
   overview: "Overview",
   leaves: "Leave management",
   attendance: "Attendance",
+  profile: "My profile",
   team: "Employee directory",
 };
 
@@ -941,7 +943,11 @@ function App() {
     }
   }
 
-  const activeSection = isAdmin && section === "team" ? "team" : section;
+  const activeSection = isAdmin && section === "team"
+    ? "team"
+    : isAdmin && section === "profile"
+      ? "overview"
+      : section;
 
   return (
     <div className="portal-shell">
@@ -1001,6 +1007,15 @@ function App() {
           >
             Attendance
           </NavButton>
+          {!isAdmin && (
+            <NavButton
+              icon={<UserRound size={18} />}
+              active={activeSection === "profile"}
+              onClick={() => { setSection("profile"); setMobileNavOpen(false); }}
+            >
+              My profile
+            </NavButton>
+          )}
           {isAdmin && (
             <NavButton
               icon={<Users size={18} />}
@@ -1085,7 +1100,9 @@ function App() {
                       ? isAdmin
                         ? "Record daily attendance for your approved team."
                         : "Your attendance is recorded by the ADN administrator."
-                      : "Manage access and keep your employee list up to date."}
+                      : activeSection === "profile"
+                        ? "Review your personal employee details."
+                        : "Manage access and keep your employee list up to date."}
               </p>
             </div>
             {activeSection === "leaves" && !isAdmin && (
@@ -1132,6 +1149,9 @@ function App() {
               onApprove={changeApproval}
               onReview={reviewLeave}
             />
+          )}
+          {activeSection === "profile" && !isAdmin && profile && (
+            <EmployeeDetailsPanel profile={profile} />
           )}
           {activeSection === "leaves" && (
             <LeavesPage
@@ -1639,6 +1659,50 @@ function Overview({
         </>
       )}
     </>
+  );
+}
+
+function EmployeeDetailsPanel({ profile }: { profile: EmployeeProfile }) {
+  const details = [
+    { label: "Full name", value: profile.displayName },
+    { label: "Email", value: profile.email },
+    { label: "Phone number", value: profile.phone },
+    { label: "GitHub ID", value: profile.githubId },
+  ];
+
+  return (
+    <section className="panel employee-details-panel">
+      <PanelHeading
+        title="Your details"
+        subtitle="Your employee profile information."
+      />
+      <dl className="employee-detail-grid">
+        {details.map(({ label, value }) => (
+          <div className="employee-detail" key={label}>
+            <dt>{label}</dt>
+            <dd>{value || "Not provided"}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="employee-track-records">
+        <h3>Track records</h3>
+        {profile.trackRecords?.length ? (
+          <ul>
+            {profile.trackRecords.map((record, index) => (
+              <li key={`${record.role}-${record.startDate}-${index}`}>
+                <strong>{record.role}</strong>
+                <span>
+                  {formatDate(record.startDate)} –{" "}
+                  {record.endDate ? formatDate(record.endDate) : "Present"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No track records added.</p>
+        )}
+      </div>
+    </section>
   );
 }
 
