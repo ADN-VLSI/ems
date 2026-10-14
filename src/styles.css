@@ -1638,6 +1638,95 @@ tbody tr:last-child td {
   font-size: 12.15px;
 }
 
+.leave-overview-panel {
+  margin-bottom: 16px;
+}
+
+.leave-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.leave-overview-card {
+  display: flex;
+  min-width: 0;
+  min-height: 139px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #e9edf1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.leave-overview-card > strong {
+  color: #465367;
+  font-size: 13.5px;
+}
+
+.leave-overview-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.leave-overview-figures > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.leave-overview-figures b,
+.leave-overview-attendance-status b {
+  color: #344154;
+  font-family: "Manrope", sans-serif;
+  font-size: 21px;
+  line-height: 1.2;
+}
+
+.leave-overview-figures small,
+.leave-overview-card > small {
+  color: #778294;
+  font-size: 12.15px;
+  line-height: 1.4;
+}
+
+.leave-overview-annual {
+  border-left: 3px solid #58a9d4;
+}
+
+.leave-overview-sick {
+  border-left: 3px solid #7257aa;
+}
+
+.leave-overview-attendance {
+  justify-content: flex-start;
+  border-left: 3px solid #8c9cac;
+}
+
+.leave-overview-attendance-counted {
+  border-left-color: #438766;
+}
+
+.leave-overview-attendance-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.attendance-indicator {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b47a22;
+}
+
+.attendance-indicator-counted {
+  background: #438766;
+}
+
 .leave-form-panel {
   scroll-margin-top: 85px;
 }
@@ -2262,6 +2351,10 @@ tbody tr:last-child td {
 
   .dashboard-grid,
   .dashboard-grid-admin {
+    grid-template-columns: 1fr;
+  }
+
+  .leave-overview-grid {
     grid-template-columns: 1fr;
   }
 }

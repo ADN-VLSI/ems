@@ -1120,6 +1120,7 @@ function App() {
             <Overview
               isAdmin={Boolean(isAdmin)}
               user={user}
+              profile={profile}
               employees={approvedEmployees}
               pendingEmployees={pendingEmployees}
               requests={leaveRequests}
@@ -1202,6 +1203,7 @@ function NavButton({
 function Overview({
   isAdmin,
   user,
+  profile,
   employees,
   pendingEmployees,
   requests,
@@ -1215,6 +1217,7 @@ function Overview({
 }: {
   isAdmin: boolean;
   user: User;
+  profile: EmployeeProfile | null;
   employees: EmployeeProfile[];
   pendingEmployees: EmployeeProfile[];
   requests: LeaveRequest[];
@@ -1230,9 +1233,35 @@ function Overview({
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
 }) {
+  const todayAttendance = attendance.filter((record) => record.date === today);
+  const todayAttendanceRecord = attendance.find((record) => record.date === today);
   const presentToday = attendance.filter(
     (record) => record.date === today && ["present", "late"].includes(record.status),
   ).length;
+  const currentFiscalYear = fiscalYearStartForDate(today);
+  const currentLeaveBalance = profile?.leaveBalances?.[String(currentFiscalYear)];
+  const leaveSummary = (type: LeaveType, balance: number | undefined) => {
+    const taken = requests.reduce(
+      (total, request) =>
+        request.type === type && request.status === "approved"
+          ? total + daysInFiscalYear(request, currentFiscalYear)
+          : total,
+      0,
+    );
+    const reserved = requests.reduce(
+      (total, request) =>
+        request.type === type &&
+        (request.status === "pending" || request.status === "approved")
+          ? total + daysInFiscalYear(request, currentFiscalYear)
+          : total,
+      0,
+    );
+    return {
+      taken,
+      available: balance === undefined ? undefined : Math.max(0, balance - reserved),
+      pending: Math.max(0, reserved - taken),
+    };
+  };
   const latestRequests = requests.slice(0, 5);
   const firstName = user.displayName?.split(" ")[0] || "there";
   const [noticeTitle, setNoticeTitle] = useState("");
@@ -1384,9 +1413,9 @@ function Overview({
             />
             <StatCard
               icon={<CalendarCheck2 size={18} />}
-              label="Attendance today"
-              value={presentToday}
-              hint="Present or marked late"
+              label="Attendance counted today"
+              value={todayAttendance.length}
+              hint={`${presentToday} present or marked late · ${employees.length} approved employees`}
               tone="green"
             />
           </div>
@@ -1507,6 +1536,64 @@ function Overview({
               tone="violet"
             />
           </div>
+          <section className="panel leave-overview-panel">
+            <PanelHeading
+              title="Your leave and attendance"
+              subtitle={`${formatFiscalYear(currentFiscalYear)} · Leave days taken are approved requests.`}
+            />
+            <div className="leave-overview-grid">
+              {([
+                {
+                  type: "Annual leave" as const,
+                  balance: currentLeaveBalance?.annualDays,
+                  tone: "annual",
+                },
+                {
+                  type: "Sick leave" as const,
+                  balance: currentLeaveBalance?.sickDays,
+                  tone: "sick",
+                },
+              ]).map(({ type, balance, tone }) => {
+                const summary = leaveSummary(type, balance);
+                return (
+                  <article className={`leave-overview-card leave-overview-${tone}`} key={type}>
+                    <strong>{type}</strong>
+                    <div className="leave-overview-figures">
+                      <span>
+                        <b>{summary.taken}</b>
+                        <small>days taken</small>
+                      </span>
+                      <span>
+                        <b>{summary.available ?? "—"}</b>
+                        <small>days available</small>
+                      </span>
+                    </div>
+                    <small>
+                      {summary.available === undefined
+                        ? "Balance not set"
+                        : summary.pending
+                          ? `${summary.pending} days reserved by pending requests`
+                          : "Based on approved and pending requests"}
+                    </small>
+                  </article>
+                );
+              })}
+              <article
+                className={`leave-overview-card leave-overview-attendance ${todayAttendanceRecord ? "leave-overview-attendance-counted" : ""}`}
+              >
+                <strong>Today’s attendance</strong>
+                <div className="leave-overview-attendance-status">
+                  <span className={`attendance-indicator ${todayAttendanceRecord ? "attendance-indicator-counted" : ""}`} />
+                  <b>{todayAttendanceRecord ? "Counted" : "Not counted"}</b>
+                </div>
+                <small>
+                  {todayAttendanceRecord
+                    ? `Recorded as ${todayAttendanceRecord.status}.`
+                    : "Your administrator has not recorded it yet."}
+                </small>
+              </article>
+            </div>
+          </section>
           <div className="dashboard-grid">
             <section className="panel">
               <PanelHeading
