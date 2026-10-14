@@ -946,14 +946,15 @@ a {
 
 .panorama-cloud {
   fill: rgba(174, 220, 218, 0.2);
-  animation: cloud-drift 18s ease-in-out infinite alternate;
+  animation: cloud-drift 10s ease-in-out infinite alternate;
   transform-box: fill-box;
   transform-origin: center;
 }
 
 .panorama-cloud-two {
-  animation-delay: -9s;
-  animation-duration: 23s;
+  animation-name: cloud-drift-reverse;
+  animation-delay: -5s;
+  animation-duration: 13s;
 }
 
 .panorama-hill-far {
@@ -977,16 +978,14 @@ a {
   animation: wind-blow 5s linear infinite;
 }
 
-.panorama-city path {
+.panorama-city .panorama-buildings {
   fill: rgba(8, 39, 58, 0.42);
   stroke: rgba(153, 208, 211, 0.66);
   stroke-width: 1.4;
 }
 
 .panorama-city .panorama-windows {
-  fill: none;
-  stroke: rgba(235, 211, 160, 0.65);
-  stroke-width: 2.3;
+  fill: rgba(255, 224, 157, 0.82);
   animation: city-lights 5s ease-in-out infinite alternate;
 }
 
@@ -1007,19 +1006,24 @@ a {
 }
 
 .panorama-canopy {
-  animation: foliage-sway 5.5s ease-in-out infinite alternate;
+  animation: foliage-sway 3.2s ease-in-out infinite alternate;
   transform-box: fill-box;
   transform-origin: center bottom;
 }
 
 .panorama-tree-small .panorama-canopy {
-  animation-delay: -2.5s;
-  animation-duration: 6.5s;
+  animation-delay: -1.6s;
+  animation-duration: 4s;
 }
 
 @keyframes cloud-drift {
-  from { transform: translate(-7px, 2px); }
-  to { transform: translate(9px, -2px); }
+  from { transform: translate(-24px, 2px); }
+  to { transform: translate(28px, -3px); }
+}
+
+@keyframes cloud-drift-reverse {
+  from { transform: translate(20px, 0); }
+  to { transform: translate(-26px, -3px); }
 }
 
 @keyframes wind-blow {
@@ -1027,8 +1031,8 @@ a {
 }
 
 @keyframes foliage-sway {
-  from { transform: rotate(-1.4deg); }
-  to { transform: rotate(1.4deg); }
+  from { transform: rotate(-5deg); }
+  to { transform: rotate(5deg); }
 }
 
 @keyframes horizon-breathe {
@@ -2606,7 +2610,6 @@ tbody tr:last-child td {
   }
 
   .welcome-art {
-    right: -40px;
     opacity: 0.54;
   }
 
@@ -2620,11 +2623,6 @@ tbody tr:last-child td {
 
   .welcome-copy p {
     font-size: 13.5px;
-  }
-
-  .banner-date {
-    right: 20px;
-    bottom: 16px;
   }
 
   .stat-grid {
@@ -2725,7 +2723,6 @@ tbody tr:last-child td {
   }
 
   .welcome-art {
-    right: -100px;
     opacity: 0.28;
   }
 
@@ -3117,22 +3114,144 @@ tbody tr:last-child td {
   }
 
   .overview-hero {
-    min-height: 215px;
-    padding: 21px 17px 24px;
+    min-height: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 20px 17px;
   }
 
   .overview-hero .welcome-copy {
     max-width: 100%;
   }
 
+  .overview-hero .welcome-art {
+    right: 0;
+    opacity: 0.2;
+  }
+
+  .overview-hero .welcome-copy h2 {
+    font-size: 26px;
+    line-height: 1.2;
+  }
+
+  .overview-hero .welcome-copy p {
+    max-width: 100%;
+    font-size: 13px;
+  }
+
   .overview-hero-actions {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px 8px;
     margin-top: 8px;
   }
 
   .overview-hero-actions .banner-link {
-    padding: 6px 8px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .overview-hero .banner-datetime {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    margin-top: 2px;
+  }
+
+  .overview-hero .banner-clock {
+    font-size: 17px;
+  }
+
+  .overview-hero .banner-date {
+    font-size: 10.5px;
+  }
+
+  .overview-dashboard-admin .stat-card {
+    display: grid;
+    min-height: 112px;
+    grid-template-columns: 30px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: start;
+    gap: 5px 8px;
+    padding: 11px;
+  }
+
+  .overview-dashboard-admin .stat-icon {
+    grid-column: 1;
+    grid-row: 1;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+  }
+
+  .overview-dashboard-admin .stat-label {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    font-size: 11.5px;
+    line-height: 1.3;
+  }
+
+  .overview-dashboard-admin .stat-value {
+    grid-column: 1;
+    grid-row: 2;
+    font-size: 25px;
+    line-height: 1.15;
+  }
+
+  .overview-dashboard-admin .stat-hint {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    margin-top: 0;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  .overview-dashboard-admin .stat-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  body {
+    min-width: 0;
+  }
+
+  .overview-dashboard-admin .stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-dashboard-admin .stat-card {
+    min-height: 72px;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 9px;
+  }
+
+  .overview-dashboard-admin .stat-icon {
+    grid-column: 1;
+    grid-row: 1 / 3;
+  }
+
+  .overview-dashboard-admin .stat-label {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .overview-dashboard-admin .stat-value {
+    grid-column: 3;
+    grid-row: 1 / 3;
+  }
+
+  .overview-dashboard-admin .stat-hint {
+    grid-column: 2;
+    grid-row: 2;
   }
 }

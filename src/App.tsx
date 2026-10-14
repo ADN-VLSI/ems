@@ -1574,8 +1574,69 @@ function Overview({
               <path d="M500 98h72M620 116h52M684 76h68" />
             </g>
             <g className="panorama-city">
-              <path d="M785 208V142L808 130V208M815 208V109H856V208M864 208V151L887 139V208M897 208V93H935V208M943 208V124L970 109V208M981 208V76H1022V208M1031 208V133L1063 119V208M1073 208V96H1111V208M1121 208V147L1150 132V208" />
-              <path className="panorama-windows" d="M824 123h5m12 0h5m-22 15h5m12 0h5m-22 15h5m12 0h5m83-47h5m12 0h5m-22 16h5m12 0h5m-22 16h5m12 0h5m67-52h5m12 0h5m-22 17h5m12 0h5m-22 17h5m12 0h5m57-38h5m12 0h5m-22 16h5m12 0h5m-22 16h5m12 0h5" />
+              <path className="panorama-buildings" d="M785 208V142L808 130V208ZM815 208V109H856V208ZM864 208V151L887 139V208ZM897 208V93H935V208ZM943 208V124L970 109V208ZM981 208V76H1022V208ZM1031 208V133L1063 119V208ZM1073 208V96H1111V208ZM1121 208V147L1150 132V208Z" />
+              <g className="panorama-windows">
+                <rect x="790" y="151" width="5" height="7" rx="1" />
+                <rect x="799" y="146" width="5" height="7" rx="1" />
+                <rect x="790" y="169" width="5" height="7" rx="1" />
+                <rect x="799" y="164" width="5" height="7" rx="1" />
+                <rect x="790" y="187" width="5" height="7" rx="1" />
+                <rect x="799" y="182" width="5" height="7" rx="1" />
+                <rect x="822" y="120" width="6" height="7" rx="1" />
+                <rect x="839" y="120" width="6" height="7" rx="1" />
+                <rect x="822" y="138" width="6" height="7" rx="1" />
+                <rect x="839" y="138" width="6" height="7" rx="1" />
+                <rect x="822" y="156" width="6" height="7" rx="1" />
+                <rect x="839" y="156" width="6" height="7" rx="1" />
+                <rect x="822" y="174" width="6" height="7" rx="1" />
+                <rect x="839" y="174" width="6" height="7" rx="1" />
+                <rect x="870" y="160" width="5" height="7" rx="1" />
+                <rect x="879" y="155" width="5" height="7" rx="1" />
+                <rect x="870" y="178" width="5" height="7" rx="1" />
+                <rect x="879" y="173" width="5" height="7" rx="1" />
+                <rect x="904" y="105" width="6" height="7" rx="1" />
+                <rect x="920" y="105" width="6" height="7" rx="1" />
+                <rect x="904" y="123" width="6" height="7" rx="1" />
+                <rect x="920" y="123" width="6" height="7" rx="1" />
+                <rect x="904" y="141" width="6" height="7" rx="1" />
+                <rect x="920" y="141" width="6" height="7" rx="1" />
+                <rect x="904" y="159" width="6" height="7" rx="1" />
+                <rect x="920" y="159" width="6" height="7" rx="1" />
+                <rect x="904" y="177" width="6" height="7" rx="1" />
+                <rect x="920" y="177" width="6" height="7" rx="1" />
+                <rect x="950" y="137" width="5" height="7" rx="1" />
+                <rect x="960" y="131" width="5" height="7" rx="1" />
+                <rect x="950" y="155" width="5" height="7" rx="1" />
+                <rect x="960" y="149" width="5" height="7" rx="1" />
+                <rect x="950" y="173" width="5" height="7" rx="1" />
+                <rect x="960" y="167" width="5" height="7" rx="1" />
+                <rect x="989" y="89" width="6" height="7" rx="1" />
+                <rect x="1005" y="89" width="6" height="7" rx="1" />
+                <rect x="989" y="107" width="6" height="7" rx="1" />
+                <rect x="1005" y="107" width="6" height="7" rx="1" />
+                <rect x="989" y="125" width="6" height="7" rx="1" />
+                <rect x="1005" y="125" width="6" height="7" rx="1" />
+                <rect x="989" y="143" width="6" height="7" rx="1" />
+                <rect x="1005" y="143" width="6" height="7" rx="1" />
+                <rect x="989" y="161" width="6" height="7" rx="1" />
+                <rect x="1005" y="161" width="6" height="7" rx="1" />
+                <rect x="1038" y="147" width="6" height="7" rx="1" />
+                <rect x="1051" y="142" width="6" height="7" rx="1" />
+                <rect x="1038" y="165" width="6" height="7" rx="1" />
+                <rect x="1051" y="160" width="6" height="7" rx="1" />
+                <rect x="1079" y="108" width="6" height="7" rx="1" />
+                <rect x="1096" y="108" width="6" height="7" rx="1" />
+                <rect x="1079" y="126" width="6" height="7" rx="1" />
+                <rect x="1096" y="126" width="6" height="7" rx="1" />
+                <rect x="1079" y="144" width="6" height="7" rx="1" />
+                <rect x="1096" y="144" width="6" height="7" rx="1" />
+                <rect x="1079" y="162" width="6" height="7" rx="1" />
+                <rect x="1096" y="162" width="6" height="7" rx="1" />
+                <rect x="1127" y="157" width="5" height="7" rx="1" />
+                <rect x="1139" y="151" width="5" height="7" rx="1" />
+                <rect x="1127" y="175" width="5" height="7" rx="1" />
+                <rect x="1139" y="169" width="5" height="7" rx="1" />
+              </g>
             </g>
             <g className="panorama-tree" transform="translate(610 0)">
               <path d="M0 250V172m-1 34-20-18m20 8 17-24" />
