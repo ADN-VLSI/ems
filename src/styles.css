@@ -2621,6 +2621,21 @@ tbody tr:last-child td {
   color: #536b92;
 }
 
+.monthly-cleanup-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.monthly-cleanup-controls .field {
+  width: min(100%, 240px);
+}
+
+.monthly-cleanup-controls .button {
+  min-height: 39px;
+}
+
 .notice-editor {
   margin-bottom: 18px;
   padding-bottom: 18px;

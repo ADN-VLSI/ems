@@ -10,6 +10,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
   where,
   writeBatch,
@@ -160,6 +161,98 @@ export type DailyUpdateControl = {
   accepting: boolean;
   acceptingUntil: Date;
 };
+
+export type MonthCleanupCounts = {
+  attendance: number;
+  leaveRequests: number;
+  dailyUpdates: number;
+  concerns: number;
+  concernReplies: number;
+  notices: number;
+};
+
+function dateIsInMonth(value: unknown, month: string): value is string {
+  return (
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    value >= `${month}-01` &&
+    value <= `${month}-31`
+  );
+}
+
+function timestampIsInMonth(value: unknown, month: string): boolean {
+  if (!(value instanceof Timestamp)) return false;
+  const date = value.toDate();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` === month;
+}
+
+export async function clearMonthlyRecords(month: string): Promise<MonthCleanupCounts> {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
+    throw new Error("Choose a valid month before deleting records.");
+  }
+
+  const [attendance, leaveRequests, dailyUpdates, concerns, notices] = await Promise.all([
+    getDocs(collection(db, "attendance")),
+    getDocs(collection(db, "leaveRequests")),
+    getDocs(collection(db, "dailyUpdates")),
+    getDocs(collection(db, "concerns")),
+    getDocs(collection(db, "notices")),
+  ]);
+  const attendanceToDelete = attendance.docs.filter((item) =>
+    dateIsInMonth(item.data().date, month),
+  );
+  const leaveRequestsToDelete = leaveRequests.docs.filter((item) => {
+    const { startDate, endDate } = item.data();
+    return (
+      typeof startDate === "string" &&
+      typeof endDate === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(startDate) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(endDate) &&
+      startDate <= `${month}-31` &&
+      endDate >= `${month}-01`
+    );
+  });
+  const dailyUpdatesToDelete = dailyUpdates.docs.filter((item) =>
+    dateIsInMonth(item.data().date, month),
+  );
+  const concernsToDelete = concerns.docs.filter((item) =>
+    timestampIsInMonth(item.data().createdAt, month),
+  );
+  const noticesToDelete = notices.docs.filter((item) =>
+    timestampIsInMonth(item.data().createdAt, month),
+  );
+  const concernMessages = await Promise.all(
+    concernsToDelete.map((item) =>
+      getDocs(collection(db, "concerns", item.id, "messages")),
+    ),
+  );
+  const messageReferences = concernMessages.flatMap((snapshot) =>
+    snapshot.docs.map((item) => item.ref),
+  );
+  const concernReferences = concernsToDelete.map((item) => item.ref);
+  const recordReferences = [
+    ...attendanceToDelete.map((item) => item.ref),
+    ...leaveRequestsToDelete.map((item) => item.ref),
+    ...dailyUpdatesToDelete.map((item) => item.ref),
+    ...noticesToDelete.map((item) => item.ref),
+  ];
+  const references = [...messageReferences, ...concernReferences, ...recordReferences];
+
+  for (let index = 0; index < references.length; index += 450) {
+    const batch = writeBatch(db);
+    references.slice(index, index + 450).forEach((reference) => batch.delete(reference));
+    await batch.commit();
+  }
+
+  return {
+    attendance: attendanceToDelete.length,
+    leaveRequests: leaveRequestsToDelete.length,
+    dailyUpdates: dailyUpdatesToDelete.length,
+    concerns: concernsToDelete.length,
+    concernReplies: messageReferences.length,
+    notices: noticesToDelete.length,
+  };
+}
 
 export function dailyUpdatesOpen(now = new Date(), control?: DailyUpdateControl): boolean {
   if (control) return control.accepting && now < control.acceptingUntil;

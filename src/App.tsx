@@ -54,6 +54,8 @@ import {
   listenToLeaveRequests,
   listenToNotices,
   listenToProfile,
+  clearMonthlyRecords,
+  type MonthCleanupCounts,
 } from "./data";
 import { ConcernsPage, needsAdminReply } from "./Concerns";
 import { DailyUpdatesPage, DailyUpdateSummary } from "./DailyUpdates";
@@ -714,6 +716,11 @@ function App() {
     }
   }
 
+  async function deleteMonthlyRecords(month: string): Promise<MonthCleanupCounts> {
+    if (!isAdmin) throw new Error("Only the administrator can delete monthly records.");
+    return clearMonthlyRecords(month);
+  }
+
   async function saveBoardNotice(
     noticeId: string | null,
     title: string,
@@ -1332,6 +1339,8 @@ function App() {
               onSaveLeaveBalances={updateLeaveBalances}
               onSaveEmployeeDetails={updateEmployeeDetails}
               onDeleteEmployee={deleteEmployee}
+              onDeleteMonthlyRecords={deleteMonthlyRecords}
+              onNotice={(kind, message) => setNotice({ kind, message })}
             />
           )}
         </div>
@@ -3140,6 +3149,8 @@ function TeamPage({
   onSaveLeaveBalances,
   onSaveEmployeeDetails,
   onDeleteEmployee,
+  onDeleteMonthlyRecords,
+  onNotice,
 }: {
   employees: EmployeeProfile[];
   attendance: AttendanceRecord[];
@@ -3156,12 +3167,18 @@ function TeamPage({
     details: EmployeeProfileDetails,
   ) => Promise<void>;
   onDeleteEmployee: (employee: EmployeeProfile) => void;
+  onDeleteMonthlyRecords: (month: string) => Promise<MonthCleanupCounts>;
+  onNotice: (kind: "success" | "error", message: string) => void;
 }) {
   const [filter, setFilter] = useState<"all" | ApprovalStatus>("all");
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [employeeSort, setEmployeeSort] = useState<"name" | "registered" | "access">("name");
   const [employeeSortDirection, setEmployeeSortDirection] = useState<SortDirection>("asc");
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null);
+  const [cleanupMonth, setCleanupMonth] = useState(
+    `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}`,
+  );
+  const [cleanupBusy, setCleanupBusy] = useState(false);
   const currentFiscalYear = fiscalYearStartForDate(new Date());
   const [fiscalYearStart, setFiscalYearStart] = useState(currentFiscalYear);
   const fiscalYears = useMemo(
@@ -3197,6 +3214,40 @@ function TeamPage({
   const selectedEmployee = employees.find(
     (employee) => employee.uid === profileEmployeeId,
   );
+
+  async function cleanSelectedMonth() {
+    if (cleanupBusy || !/^\d{4}-(0[1-9]|1[0-2])$/.test(cleanupMonth)) {
+      onNotice("error", "Choose a valid month before deleting records.");
+      return;
+    }
+    const monthLabel = new Intl.DateTimeFormat("en", {
+      month: "long",
+      year: "numeric",
+    }).format(new Date(`${cleanupMonth}-01T00:00:00`));
+    if (
+      !window.confirm(
+        `Permanently delete attendance and daily updates dated ${monthLabel}, leave requests overlapping ${monthLabel}, concerns opened in ${monthLabel} (including all replies), and notices published in ${monthLabel}? Employee profiles and leave balances will be kept. This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    setCleanupBusy(true);
+    try {
+      const counts = await onDeleteMonthlyRecords(cleanupMonth);
+      onNotice(
+        "success",
+        `Deleted ${counts.attendance} attendance records, ${counts.leaveRequests} leave requests, ${counts.dailyUpdates} daily updates, ${counts.concerns} concerns and ${counts.concernReplies} replies, and ${counts.notices} notices for ${monthLabel}. Employee profiles and leave balances were kept.`,
+      );
+    } catch (actionError) {
+      onNotice(
+        "error",
+        `Could not complete the monthly cleanup. Some records may already have been deleted. ${friendlyError(actionError)}`,
+      );
+    } finally {
+      setCleanupBusy(false);
+    }
+  }
 
   return (
     <div className="content-stack">
@@ -3343,6 +3394,35 @@ function TeamPage({
           </section>
         </>
       )}
+      <section className="panel">
+        <PanelHeading
+          title="Monthly record cleanup"
+          subtitle="Permanently remove business records for a selected month while keeping employee profiles and leave balances."
+        />
+        <div className="monthly-cleanup-controls">
+          <label className="field">
+            <span>Month to clear</span>
+            <input
+              type="month"
+              value={cleanupMonth}
+              onChange={(event) => setCleanupMonth(event.target.value)}
+              disabled={cleanupBusy}
+            />
+          </label>
+          <Button
+            variant="danger"
+            disabled={cleanupBusy}
+            onClick={cleanSelectedMonth}
+          >
+            <Trash2 size={15} />
+            {cleanupBusy ? "Deleting records..." : "Delete records for month"}
+          </Button>
+        </div>
+        <p className="panel-note">
+          Includes attendance and daily updates dated in the month, leave requests that overlap it,
+          concerns opened in the month and all their replies, and notices published in the month.
+        </p>
+      </section>
       <section className="admin-note">
         <ShieldCheck size={18} />
         <p><strong>Admin-only controls.</strong> Only the ADN administrator can change employee access or manually set annual and sick balances for each fiscal year.</p>
