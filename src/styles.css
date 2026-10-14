@@ -896,69 +896,158 @@ a {
   color: #fff;
 }
 
-.banner-date {
+.banner-datetime {
   position: absolute;
   z-index: 3;
   right: 28px;
-  bottom: 22px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  color: #e1ecf3;
+  font-variant-numeric: tabular-nums;
+}
+
+.banner-clock {
+  color: #fff;
+  font-family: "Manrope", sans-serif;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  line-height: 1.2;
+}
+
+.banner-date {
   color: #cfdae7;
-  font-size: 12.15px;
+  font-size: 11.5px;
 }
 
 .welcome-art {
   position: absolute;
-  top: 0;
-  right: 9%;
-  width: 255px;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
   height: 100%;
-  opacity: 0.76;
+  opacity: 0.9;
 }
 
 .welcome-art svg {
   width: 100%;
   height: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 
-.growth-grid {
+.panorama-horizon-glow {
+  fill: url("#overview-panorama-horizon");
+  opacity: 0.42;
+  animation: horizon-breathe 12s ease-in-out infinite alternate;
+}
+
+.panorama-cloud {
+  fill: rgba(174, 220, 218, 0.2);
+  animation: cloud-drift 18s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.panorama-cloud-two {
+  animation-delay: -9s;
+  animation-duration: 23s;
+}
+
+.panorama-hill-far {
+  fill: url("#overview-panorama-hill");
+  stroke: rgba(119, 193, 190, 0.24);
+  stroke-width: 1.5;
+}
+
+.panorama-hill-near {
+  fill: rgba(9, 40, 59, 0.66);
+  stroke: rgba(109, 183, 180, 0.4);
+  stroke-width: 1.3;
+}
+
+.panorama-wind {
   fill: none;
-  stroke: rgba(221, 234, 246, 0.14);
-  stroke-dasharray: 2 7;
-  stroke-width: 1;
-}
-
-.growth-area {
-  fill: url("#overview-growth-area");
-}
-
-.growth-line {
-  fill: none;
-  stroke: url("#overview-growth-line");
+  stroke: rgba(175, 225, 218, 0.48);
+  stroke-dasharray: 13 60;
   stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.5;
+  stroke-width: 1.8;
+  animation: wind-blow 5s linear infinite;
 }
 
-.growth-milestone {
-  fill: #d9e7f3;
-  stroke: rgba(217, 231, 243, 0.22);
-  stroke-width: 5;
+.panorama-city path {
+  fill: rgba(8, 39, 58, 0.42);
+  stroke: rgba(153, 208, 211, 0.66);
+  stroke-width: 1.4;
 }
 
-.growth-milestone-final {
-  fill: #f1d6a5;
-  stroke: rgba(241, 214, 165, 0.18);
-  stroke-width: 7;
+.panorama-city .panorama-windows {
+  fill: none;
+  stroke: rgba(235, 211, 160, 0.65);
+  stroke-width: 2.3;
+  animation: city-lights 5s ease-in-out infinite alternate;
 }
 
-.growth-traveler {
-  fill: #fff2d8;
-  filter: drop-shadow(0 0 5px rgba(255, 242, 216, 0.85));
+.panorama-tree path,
+.panorama-tree circle {
+  fill: rgba(19, 70, 82, 0.82);
+  stroke: rgba(138, 201, 191, 0.68);
+  stroke-width: 1.4;
+}
+
+.panorama-tree path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.panorama-tree-small {
+  opacity: 0.7;
+}
+
+.panorama-canopy {
+  animation: foliage-sway 5.5s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.panorama-tree-small .panorama-canopy {
+  animation-delay: -2.5s;
+  animation-duration: 6.5s;
+}
+
+@keyframes cloud-drift {
+  from { transform: translate(-7px, 2px); }
+  to { transform: translate(9px, -2px); }
+}
+
+@keyframes wind-blow {
+  to { stroke-dashoffset: -73; }
+}
+
+@keyframes foliage-sway {
+  from { transform: rotate(-1.4deg); }
+  to { transform: rotate(1.4deg); }
+}
+
+@keyframes horizon-breathe {
+  from { opacity: 0.3; }
+  to { opacity: 0.72; }
+}
+
+@keyframes city-lights {
+  from { opacity: 0.45; }
+  to { opacity: 0.95; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .growth-traveler {
-    display: none;
+  .panorama-cloud,
+  .panorama-canopy,
+  .panorama-wind,
+  .panorama-horizon-glow,
+  .panorama-city .panorama-windows {
+    animation: none;
   }
 }
 

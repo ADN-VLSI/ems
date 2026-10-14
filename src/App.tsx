@@ -116,6 +116,37 @@ function formatDate(value?: string | null): string {
       }).format(date);
 }
 
+function OverviewClock() {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const time = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Dhaka",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(now);
+  const date = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Dhaka",
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(now);
+
+  return (
+    <div className="banner-datetime" aria-label="Current time and date">
+      <time className="banner-clock" dateTime={now.toISOString()}>{time}</time>
+      <time className="banner-date" dateTime={now.toISOString()}>{date}</time>
+    </div>
+  );
+}
+
 function formatTimestamp(value?: { toDate: () => Date }): string {
   if (!value) return "Just now";
   return new Intl.DateTimeFormat("en", {
@@ -1515,39 +1546,56 @@ function Overview({
           </div>
         </div>
         <div className="welcome-art" aria-hidden="true">
-          <svg viewBox="0 0 260 200" focusable="false">
+          <svg viewBox="0 0 1200 280" preserveAspectRatio="none" focusable="false">
             <defs>
-              <linearGradient id="overview-growth-area" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#e9d4ad" stopOpacity=".2" />
-                <stop offset="100%" stopColor="#e9d4ad" stopOpacity="0" />
+              <linearGradient id="overview-panorama-hill" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#83c2c0" stopOpacity=".4" />
+                <stop offset="100%" stopColor="#0d3048" stopOpacity=".78" />
               </linearGradient>
-              <linearGradient id="overview-growth-line" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stopColor="#c4d9ec" />
-                <stop offset="100%" stopColor="#f1d6a5" />
-              </linearGradient>
+              <radialGradient id="overview-panorama-horizon">
+                <stop offset="0%" stopColor="#8edbd0" stopOpacity=".32" />
+                <stop offset="100%" stopColor="#8edbd0" stopOpacity="0" />
+              </radialGradient>
             </defs>
-            <path className="growth-grid" d="M12 57H250 M12 102H250 M12 147H250" />
-            <path
-              className="growth-area"
-              d="M12 157C55 151 67 116 105 127S159 74 187 88 224 37 250 30V184H12Z"
-            />
-            <path
-              className="growth-line"
-              d="M12 157C55 151 67 116 105 127S159 74 187 88 224 37 250 30"
-            />
-            <circle className="growth-milestone" cx="105" cy="127" r="3" />
-            <circle className="growth-milestone" cx="187" cy="88" r="3" />
-            <circle className="growth-milestone growth-milestone-final" cx="250" cy="30" r="4" />
-            <circle className="growth-traveler" r="4">
-              <animateMotion
-                dur="7s"
-                repeatCount="indefinite"
-                path="M12 157C55 151 67 116 105 127S159 74 187 88 224 37 250 30"
-              />
-            </circle>
+            <circle className="panorama-horizon-glow" cx="918" cy="96" r="116" />
+            <g className="panorama-cloud panorama-cloud-one">
+              <ellipse cx="704" cy="74" rx="31" ry="8" />
+              <ellipse cx="720" cy="68" rx="19" ry="11" />
+              <ellipse cx="738" cy="74" rx="27" ry="7" />
+            </g>
+            <g className="panorama-cloud panorama-cloud-two">
+              <ellipse cx="1010" cy="55" rx="27" ry="7" />
+              <ellipse cx="1024" cy="49" rx="17" ry="10" />
+              <ellipse cx="1043" cy="55" rx="24" ry="6" />
+            </g>
+            <path className="panorama-hill panorama-hill-far" d="M360 244C470 191 508 151 598 185S735 194 815 130 941 132 1200 61V280H360Z" />
+            <path className="panorama-hill panorama-hill-near" d="M415 280C520 218 596 230 672 188S816 210 893 158 1059 176 1200 105V280Z" />
+            <g className="panorama-wind">
+              <path d="M500 98h72M620 116h52M684 76h68" />
+            </g>
+            <g className="panorama-city">
+              <path d="M785 208V142L808 130V208M815 208V109H856V208M864 208V151L887 139V208M897 208V93H935V208M943 208V124L970 109V208M981 208V76H1022V208M1031 208V133L1063 119V208M1073 208V96H1111V208M1121 208V147L1150 132V208" />
+              <path className="panorama-windows" d="M824 123h5m12 0h5m-22 15h5m12 0h5m-22 15h5m12 0h5m83-47h5m12 0h5m-22 16h5m12 0h5m-22 16h5m12 0h5m67-52h5m12 0h5m-22 17h5m12 0h5m-22 17h5m12 0h5m57-38h5m12 0h5m-22 16h5m12 0h5m-22 16h5m12 0h5" />
+            </g>
+            <g className="panorama-tree" transform="translate(610 0)">
+              <path d="M0 250V172m-1 34-20-18m20 8 17-24" />
+              <g className="panorama-canopy">
+                <circle cx="-1" cy="154" r="23" />
+                <circle cx="-19" cy="164" r="16" />
+                <circle cx="15" cy="166" r="17" />
+              </g>
+            </g>
+            <g className="panorama-tree panorama-tree-small" transform="translate(750 28)">
+              <path d="M0 222V177m0 21-12-12m12 4 11-15" />
+              <g className="panorama-canopy">
+                <circle cx="0" cy="166" r="13" />
+                <circle cx="-11" cy="171" r="9" />
+                <circle cx="11" cy="173" r="9" />
+              </g>
+            </g>
           </svg>
         </div>
-        <span className="banner-date">{formatDate(today)}</span>
+        <OverviewClock />
       </section>
 
       {!isAdmin && profile?.status === "approved" && (
