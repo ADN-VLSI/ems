@@ -2,8 +2,8 @@ name: Send daily updates
 
 on:
   schedule:
-    # 15:00 UTC = 9:00 PM Asia/Dhaka
-    - cron: "0 15 * * *"
+    # 17:30 UTC = 11:30 PM Asia/Dhaka
+    - cron: "30 17 * * *"
   workflow_dispatch:
 
 permissions:

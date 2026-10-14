@@ -124,7 +124,7 @@ export function listenToAttendance(
   );
 }
 
-export function dhakaDateParts(now = new Date()): { date: string; hour: number } {
+export function dhakaDateParts(now = new Date()): { date: string; hour: number; minute: number } {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Dhaka",
@@ -132,12 +132,17 @@ export function dhakaDateParts(now = new Date()): { date: string; hour: number }
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
+      minute: "2-digit",
       hourCycle: "h23",
     })
       .formatToParts(now)
       .map((part) => [part.type, part.value]),
   );
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+  };
 }
 
 export type DailyUpdateControl = {
@@ -148,7 +153,8 @@ export type DailyUpdateControl = {
 
 export function dailyUpdatesOpen(now = new Date(), control?: DailyUpdateControl): boolean {
   if (control) return control.accepting && now < control.acceptingUntil;
-  return dhakaDateParts(now).hour < 21;
+  const { hour, minute } = dhakaDateParts(now);
+  return hour < 23 || (hour === 23 && minute < 30);
 }
 
 export function listenToDailyUpdateControl(

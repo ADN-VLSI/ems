@@ -188,7 +188,7 @@ service cloud.firestore {
     }
 
     // The control document opens the next reporting day only after the email succeeds.
-    // Before the first email, submissions are open until 9:00 PM Asia/Dhaka.
+    // Before the first email, submissions are open until 11:30 PM Asia/Dhaka.
     function dailyCollectionOpen() {
       let controlPath = /databases/$(database)/documents/system/dailyUpdates;
       return exists(controlPath)
@@ -199,7 +199,7 @@ service cloud.firestore {
 
     function dailyWindowOpenBeforeFirstSend() {
       let msOfDay = request.time.toMillis() % 86400000;
-      return msOfDay < 54000000 || msOfDay >= 64800000;
+      return msOfDay < 63000000 || msOfDay >= 64800000;
     }
 
     function dailyCollectionDateMatches() {
@@ -234,7 +234,7 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
-    // One document per employee for the current day; the 9 PM job emails and deletes them.
+    // One document per employee for the current day; the 11:30 PM job emails and deletes them.
     match /dailyUpdates/{uid} {
       allow get, list: if isAdmin()
         || (isApprovedEmployee() && request.auth.uid == uid);

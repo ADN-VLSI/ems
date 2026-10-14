@@ -201,7 +201,7 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
     event.preventDefault();
     if (busy) return;
     if (!dailyWindow.open) {
-      onNotice("error", "Daily updates closed at 9:00 PM.");
+      onNotice("error", "Daily updates closed at 11:30 PM.");
       return;
     }
     const fields: DailyUpdateFields = {
@@ -218,7 +218,7 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
     try {
       await saveDailyUpdate({ uid: userId, email: userEmail, name: userName }, fields, dailyWindow.date);
       setDraft(toDraft({ ...(saved as DailyUpdate), ...fields }));
-      onNotice("success", "Your daily update was saved. You can edit it until 9:00 PM.");
+      onNotice("success", "Your daily update was saved. You can edit it until 11:30 PM.");
     } catch (error) {
       onNotice("error", `Could not save your update. ${errorText(error)}`);
     } finally {
@@ -247,7 +247,7 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
           <div>
             <h2>Daily update</h2>
             <p>
-              Submissions pause at 9:00 PM while the updates are emailed. The form reopens for the
+              Submissions pause at 11:30 PM while the updates are emailed. The form reopens for the
               next reporting day after the email is sent.
             </p>
           </div>
@@ -262,7 +262,7 @@ function EmployeeForm({ userId, userEmail, userName, onNotice }: Props) {
         <div>
           <h2>Daily update · {dailyWindow.date}</h2>
           <p>
-            Write each item as a bullet point. You can submit and edit until 9:00 PM (Dhaka time).
+            Write each item as a bullet point. You can submit and edit until 11:30 PM (Dhaka time).
             The next reporting day opens after the previous update email is sent.
           </p>
         </div>
@@ -341,7 +341,7 @@ function AdminView({ onNotice }: Props) {
         <div>
           <h2>Daily updates</h2>
           <p>
-            Collected until 9:00 PM, then emailed to info@adnsemicon.com and cleared automatically.
+            Collected until 11:30 PM, then emailed to info@adnsemicon.com and cleared automatically.
           </p>
         </div>
       </div>
