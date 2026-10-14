@@ -3023,3 +3023,106 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+.overview-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.overview-dashboard .welcome-banner,
+.overview-dashboard .notice-board,
+.overview-dashboard .stat-grid,
+.overview-dashboard .leave-overview-panel {
+  margin-bottom: 0;
+}
+
+.overview-dashboard .panel {
+  border-radius: 13px;
+  box-shadow: 0 5px 20px rgba(34, 54, 78, 0.045);
+}
+
+.overview-hero {
+  display: flex;
+  min-height: 208px;
+  align-items: center;
+}
+
+.overview-hero .welcome-copy {
+  max-width: 650px;
+}
+
+.overview-hero .welcome-copy h2 {
+  font-size: clamp(29px, 3vw, 42px);
+}
+
+.overview-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.overview-hero-actions .banner-link {
+  margin-top: 0;
+  padding: 8px 11px;
+  border: 1px solid rgba(225, 236, 250, 0.28);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.overview-hero-actions .banner-link:hover {
+  border-color: rgba(225, 236, 250, 0.48);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.overview-dashboard-admin .stat-card {
+  border-radius: 12px;
+  box-shadow: 0 5px 18px rgba(34, 54, 78, 0.035);
+}
+
+.overview-dashboard-admin .stat-card-clickable:hover {
+  box-shadow: 0 9px 22px rgba(34, 54, 78, 0.1);
+}
+
+.overview-dashboard-employee .leave-overview-panel {
+  border-color: #e2eaf2;
+  background: linear-gradient(145deg, #ffffff, #f8fbff);
+}
+
+.overview-dashboard-employee .leave-overview-card {
+  min-height: 148px;
+  border-radius: 11px;
+  box-shadow: 0 4px 15px rgba(34, 54, 78, 0.035);
+}
+
+.overview-dashboard .dashboard-grid {
+  align-items: start;
+}
+
+@media (max-width: 700px) {
+  .overview-dashboard {
+    gap: 13px;
+  }
+
+  .overview-hero {
+    min-height: 215px;
+    padding: 21px 17px 24px;
+  }
+
+  .overview-hero .welcome-copy {
+    max-width: 100%;
+  }
+
+  .overview-hero-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .overview-hero-actions .banner-link {
+    padding: 6px 8px;
+  }
+}

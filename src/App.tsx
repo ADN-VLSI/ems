@@ -35,6 +35,7 @@ import {
   ListChecks,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   MessageSquareText,
   Pencil,
@@ -83,6 +84,7 @@ type EmployeeProfileDetails = {
 
 const sectionTitles: Record<PortalSection, string> = {
   overview: "Overview",
+  notices: "Notice board",
   leaves: "Leave management",
   attendance: "Attendance",
   concerns: "Concerns",
@@ -1008,6 +1010,13 @@ function App() {
             Overview
           </NavButton>
           <NavButton
+            icon={<Megaphone size={18} />}
+            active={activeSection === "notices"}
+            onClick={() => { setSection("notices"); setMobileNavOpen(false); }}
+          >
+            Notice board
+          </NavButton>
+          <NavButton
             icon={<CalendarDays size={18} />}
             active={activeSection === "leaves"}
             onClick={() => { setSection("leaves"); setMobileNavOpen(false); }}
@@ -1142,9 +1151,13 @@ function App() {
                           ? isAdmin
                             ? "Private one-to-one conversations with employees."
                             : "Raise a concern privately with the administrator."
-                        : activeSection === "profile"
-                        ? "Review your personal employee details."
-                        : "Manage access and keep your employee list up to date."}
+                        : activeSection === "notices"
+                          ? isAdmin
+                            ? "Publish updates for the whole team."
+                            : "Read announcements from the ADN administrator."
+                          : activeSection === "profile"
+                            ? "Review your personal employee details."
+                            : "Manage access and keep your employee list up to date."}
               </p>
             </div>
             {activeSection === "leaves" && !isAdmin && (
@@ -1191,6 +1204,17 @@ function App() {
               onApprove={changeApproval}
               onReview={reviewLeave}
               onOpenDaily={() => setSection("daily")}
+              onOpenLeaves={() => setSection("leaves")}
+              onOpenAttendance={() => setSection("attendance")}
+              onOpenTeam={() => setSection("team")}
+            />
+          )}
+          {activeSection === "notices" && (
+            <NoticeBoard
+              isAdmin={Boolean(isAdmin)}
+              boardNotices={boardNotices}
+              onSaveNotice={saveBoardNotice}
+              onDeleteNotice={deleteBoardNotice}
             />
           )}
           {activeSection === "profile" && !isAdmin && profile && (
@@ -1282,6 +1306,119 @@ function NavButton({
   );
 }
 
+function NoticeBoard({
+  isAdmin,
+  boardNotices,
+  onSaveNotice,
+  onDeleteNotice,
+}: {
+  isAdmin: boolean;
+  boardNotices: NoticePost[];
+  onSaveNotice: (noticeId: string | null, title: string, body: string) => Promise<boolean>;
+  onDeleteNotice: (notice: NoticePost) => void;
+}) {
+  const [noticeTitle, setNoticeTitle] = useState("");
+  const [noticeBody, setNoticeBody] = useState("");
+  const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
+
+  async function submitNotice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (await onSaveNotice(editingNoticeId, noticeTitle, noticeBody)) {
+      setNoticeTitle("");
+      setNoticeBody("");
+      setEditingNoticeId(null);
+    }
+  }
+
+  return (
+    <section className="panel notice-board">
+      <PanelHeading
+        title="Notice board"
+        subtitle={isAdmin ? "Share updates with the whole team." : "Updates from the ADN administrator."}
+      />
+      {isAdmin && (
+        <form className="form-grid notice-editor" onSubmit={submitNotice}>
+          <label className="field field-full">
+            Notice title
+            <input
+              required
+              minLength={3}
+              maxLength={120}
+              value={noticeTitle}
+              onChange={(event) => setNoticeTitle(event.target.value)}
+            />
+          </label>
+          <label className="field field-full">
+            Message
+            <textarea
+              required
+              maxLength={4000}
+              rows={3}
+              value={noticeBody}
+              onChange={(event) => setNoticeBody(event.target.value)}
+            />
+          </label>
+          <div className="notice-editor-actions field-full">
+            <Button type="submit">
+              {editingNoticeId ? "Save changes" : "Publish notice"}
+            </Button>
+            {editingNoticeId && (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEditingNoticeId(null);
+                  setNoticeTitle("");
+                  setNoticeBody("");
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </form>
+      )}
+      {boardNotices.length ? (
+        <div className="notice-board-list">
+          {boardNotices.map((post) => (
+            <article className="notice-board-item" key={post.id}>
+              <div className="notice-board-heading">
+                <div>
+                  <h3>{post.title}</h3>
+                  <small>{formatTimestamp(post.updatedAt ?? post.createdAt)} · {post.createdBy}</small>
+                </div>
+                {isAdmin && (
+                  <div className="decision-actions">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setEditingNoticeId(post.id);
+                        setNoticeTitle(post.title);
+                        setNoticeBody(post.body);
+                      }}
+                    >
+                      <Pencil size={15} /> Edit
+                    </Button>
+                    <Button variant="secondary" onClick={() => onDeleteNotice(post)}>
+                      <Trash2 size={15} /> Delete
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <p>{post.body}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          icon={<FilePlus2 size={20} />}
+          title="No notices yet"
+          text={isAdmin ? "Publish a notice to share it with employees." : "Admin announcements will appear here."}
+        />
+      )}
+    </section>
+  );
+}
+
 function Overview({
   isAdmin,
   user,
@@ -1297,6 +1434,9 @@ function Overview({
   onApprove,
   onReview,
   onOpenDaily,
+  onOpenLeaves,
+  onOpenAttendance,
+  onOpenTeam,
 }: {
   isAdmin: boolean;
   user: User;
@@ -1307,15 +1447,14 @@ function Overview({
   pendingLeaves: LeaveRequest[];
   attendance: AttendanceRecord[];
   boardNotices: NoticePost[];
-  onSaveNotice: (
-    noticeId: string | null,
-    title: string,
-    body: string,
-  ) => Promise<boolean>;
+  onSaveNotice: (noticeId: string | null, title: string, body: string) => Promise<boolean>;
   onDeleteNotice: (notice: NoticePost) => void;
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
   onOpenDaily: () => void;
+  onOpenLeaves: () => void;
+  onOpenAttendance: () => void;
+  onOpenTeam: () => void;
 }) {
   const todayAttendance = attendance.filter((record) => record.date === today);
   const todayAttendanceRecord = attendance.find((record) => record.date === today);
@@ -1368,30 +1507,33 @@ function Overview({
   };
   const latestRequests = requests.slice(0, 5);
   const firstName = user.displayName?.split(" ")[0] || "there";
-  const [noticeTitle, setNoticeTitle] = useState("");
-  const [noticeBody, setNoticeBody] = useState("");
-  const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
-
-  async function submitNotice(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (await onSaveNotice(editingNoticeId, noticeTitle, noticeBody)) {
-      setNoticeTitle("");
-      setNoticeBody("");
-      setEditingNoticeId(null);
-    }
-  }
-
   return (
-    <>
-      <section className={`welcome-banner ${isAdmin ? "welcome-admin" : ""}`}>
+    <div className={`overview-dashboard ${isAdmin ? "overview-dashboard-admin" : "overview-dashboard-employee"}`}>
+      <section className={`welcome-banner overview-hero ${isAdmin ? "welcome-admin" : ""}`}>
         <div className="welcome-copy">
           <span className="welcome-kicker">{isAdmin ? "PEOPLE OPERATIONS" : "YOUR ADN WORKSPACE"}</span>
-          <h2>{isAdmin           ? "Welcome back, Admin." : `A great day to make an impact, ${firstName}.`}</h2>
+          <h2>{isAdmin ? "Your team, at a glance." : `Welcome back, ${firstName}.`}</h2>
           <p>
             {isAdmin
-              ? "Review pending requests, employee approvals, and today’s attendance."
-              : "Review your leave requests and attendance at a glance."}
+              ? "A clear snapshot of your team, requests, and today's attendance."
+              : "Your leave, attendance, and daily update—together in one place."}
           </p>
+          <div className="overview-hero-actions">
+            {isAdmin ? (
+              <>
+                <button className="banner-link" onClick={onOpenTeam}>
+                  Review employee accounts <ArrowRight size={15} />
+                </button>
+                <button className="banner-link" onClick={onOpenLeaves}>
+                  Review leave requests <ArrowRight size={15} />
+                </button>
+              </>
+            ) : (
+              <button className="banner-link" onClick={onOpenDaily}>
+                Open daily update <ArrowRight size={15} />
+              </button>
+            )}
+          </div>
         </div>
         <div className="welcome-art" aria-hidden="true">
           <div className="art-orbit art-orbit-one" />
@@ -1405,95 +1547,16 @@ function Overview({
         <span className="banner-date">{formatDate(today)}</span>
       </section>
 
+      <NoticeBoard
+        isAdmin={isAdmin}
+        boardNotices={boardNotices}
+        onSaveNotice={onSaveNotice}
+        onDeleteNotice={onDeleteNotice}
+      />
+
       {!isAdmin && profile?.status === "approved" && (
         <DailyUpdateSummary userId={user.uid} onOpen={onOpenDaily} />
       )}
-
-      <section className="panel notice-board">
-        <PanelHeading
-          title="Notice board"
-          subtitle={isAdmin ? "Share updates with the whole team." : "Updates from the ADN administrator."}
-        />
-        {isAdmin && (
-          <form className="form-grid notice-editor" onSubmit={submitNotice}>
-            <label className="field field-full">
-              Notice title
-              <input
-                required
-                minLength={3}
-                maxLength={120}
-                value={noticeTitle}
-                onChange={(event) => setNoticeTitle(event.target.value)}
-              />
-            </label>
-            <label className="field field-full">
-              Message
-              <textarea
-                required
-                maxLength={4000}
-                rows={3}
-                value={noticeBody}
-                onChange={(event) => setNoticeBody(event.target.value)}
-              />
-            </label>
-            <div className="notice-editor-actions field-full">
-              <Button type="submit">
-                {editingNoticeId ? "Save changes" : "Publish notice"}
-              </Button>
-              {editingNoticeId && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setEditingNoticeId(null);
-                    setNoticeTitle("");
-                    setNoticeBody("");
-                  }}
-                >
-                  Cancel
-                </Button>
-              )}
-            </div>
-          </form>
-        )}
-        {boardNotices.length ? (
-          <div className="notice-board-list">
-            {boardNotices.map((post) => (
-              <article className="notice-board-item" key={post.id}>
-                <div className="notice-board-heading">
-                  <div>
-                    <h3>{post.title}</h3>
-                    <small>{formatTimestamp(post.updatedAt ?? post.createdAt)} · {post.createdBy}</small>
-                  </div>
-                  {isAdmin && (
-                    <div className="decision-actions">
-                      <Button
-                        variant="secondary"
-                        onClick={() => {
-                          setEditingNoticeId(post.id);
-                          setNoticeTitle(post.title);
-                          setNoticeBody(post.body);
-                        }}
-                      >
-                        <Pencil size={15} /> Edit
-                      </Button>
-                      <Button variant="secondary" onClick={() => onDeleteNotice(post)}>
-                        <Trash2 size={15} /> Delete
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                <p>{post.body}</p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={<FilePlus2 size={20} />}
-            title="No notices yet"
-            text={isAdmin ? "Publish a notice to share it with employees." : "Admin announcements will appear here."}
-          />
-        )}
-      </section>
 
       {isAdmin ? (
         <>
@@ -1504,6 +1567,7 @@ function Overview({
               value={employees.length}
               hint="Active team accounts"
               tone="blue"
+              onClick={onOpenTeam}
             />
             <StatCard
               icon={<Clock3 size={18} />}
@@ -1511,6 +1575,7 @@ function Overview({
               value={pendingEmployees.length}
               hint="Waiting for approval"
               tone="amber"
+              onClick={onOpenTeam}
             />
             <StatCard
               icon={<FilePlus2 size={18} />}
@@ -1518,6 +1583,7 @@ function Overview({
               value={pendingLeaves.length}
               hint="Waiting for review"
               tone="violet"
+              onClick={onOpenLeaves}
             />
             <StatCard
               icon={<CalendarCheck2 size={18} />}
@@ -1525,6 +1591,7 @@ function Overview({
               value={todayAttendance.length}
               hint={`${presentToday} present or marked late · ${employees.length} approved employees`}
               tone="green"
+              onClick={onOpenAttendance}
             />
           </div>
           <div className="dashboard-grid dashboard-grid-admin">
@@ -1534,6 +1601,8 @@ function Overview({
                 subtitle={pendingLeaves.length
                   ? `${pendingLeaves.length} request${pendingLeaves.length === 1 ? "" : "s"} waiting for review.`
                   : "No requests waiting for review."}
+                actionLabel="View all"
+                onAction={onOpenLeaves}
               />
               <div className="compact-list">
                 {pendingLeaves.slice(0, 4).map((request) => (
@@ -1574,6 +1643,8 @@ function Overview({
               <PanelHeading
                 title="Approval queue"
                 subtitle={`${pendingEmployees.length} account${pendingEmployees.length === 1 ? "" : "s"} awaiting review.`}
+                actionLabel="View team"
+                onAction={onOpenTeam}
               />
               {pendingEmployees.length ? (
                 <div className="approval-list">
@@ -1618,6 +1689,8 @@ function Overview({
             <PanelHeading
               title="Your leave and attendance"
               subtitle={`${formatFiscalYear(currentFiscalYear)} · Leave days taken are approved requests.`}
+              actionLabel="Request leave"
+              onAction={onOpenLeaves}
             />
             <div className="leave-overview-grid">
               {([
@@ -1691,6 +1764,8 @@ function Overview({
               <PanelHeading
                 title="Your recent leave"
                 subtitle={`Latest ${Math.min(latestRequests.length, 5)} of ${requests.length} requests.`}
+                actionLabel="View all"
+                onAction={onOpenLeaves}
               />
               <LeaveTable requests={latestRequests} showEmployee={false} />
             </section>
@@ -1698,6 +1773,8 @@ function Overview({
               <PanelHeading
                 title="Your attendance"
                 subtitle={`Latest ${Math.min(attendance.length, 4)} of ${attendance.length} attendance records.`}
+                actionLabel="View all"
+                onAction={onOpenAttendance}
               />
               {attendance.slice(0, 4).length ? (
                 <div className="attendance-mini-list">
@@ -1726,7 +1803,7 @@ function Overview({
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }
 

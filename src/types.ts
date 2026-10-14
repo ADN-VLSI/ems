@@ -109,6 +109,7 @@ export type DailyUpdateFields = Pick<
 
 export type PortalSection =
   | "overview"
+  | "notices"
   | "daily"
   | "leaves"
   | "attendance"
