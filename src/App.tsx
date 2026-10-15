@@ -2781,6 +2781,7 @@ function AttendancePage({
     status: AttendanceStatus,
   ) {
     if (savingEmployeeIds.has(employee.uid)) return;
+    setOpenStatusMenuId(null);
     setSavingEmployeeIds((current) => new Set(current).add(employee.uid));
     try {
       await onSetStatus(

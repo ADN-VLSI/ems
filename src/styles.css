@@ -2006,8 +2006,6 @@ tbody tr:last-child td {
   left: auto;
 }
 
-.attendance-roster-person:hover .attendance-roster-quick-status,
-.attendance-roster-person:focus-within .attendance-roster-quick-status,
 .attendance-roster-person-open .attendance-roster-quick-status {
   display: grid;
   gap: 9px;
