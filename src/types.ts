@@ -28,6 +28,7 @@ export interface EmployeeProfile {
   photoURL?: string;
   officialEmail?: string;
   displayName: string;
+  nickname?: string;
   status: ApprovalStatus;
   githubId?: string;
   trackRecords?: TrackRecord[];
@@ -35,6 +36,12 @@ export interface EmployeeProfile {
   leaveBalances?: Record<string, LeaveBalance>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+}
+
+export function getEmployeeDisplayName(
+  employee: Pick<EmployeeProfile, "displayName" | "nickname">,
+): string {
+  return employee.nickname?.trim() || employee.displayName;
 }
 
 export interface LeaveRequest {

@@ -82,10 +82,12 @@ import type {
   PortalSection,
   TrackRecord,
 } from "./types";
+import { getEmployeeDisplayName } from "./types";
 
 type Notice = { kind: "success" | "error"; message: string };
 type EmployeeProfileDetails = {
   displayName: string;
+  nickname: string;
   officialEmail: string;
   githubId: string;
   trackRecords: TrackRecord[];
@@ -463,6 +465,9 @@ function App() {
   const [concerns, setConcerns] = useState<Concern[]>([]);
 
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL;
+  const currentEmployeeName = profile
+    ? getEmployeeDisplayName(profile)
+    : user?.displayName || user?.email?.split("@")[0] || "Employee";
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (currentUser) => {
@@ -622,7 +627,7 @@ function App() {
       });
       setNotice({
         kind: "success",
-        message: `${employee.displayName} ${status === "approved" ? "approved" : "declined"}.`,
+        message: `${getEmployeeDisplayName(employee)} ${status === "approved" ? "approved" : "declined"}.`,
       });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
@@ -635,6 +640,7 @@ function App() {
   ) {
     const values = {
       displayName: details.displayName.trim(),
+      nickname: details.nickname.trim(),
       officialEmail: details.officialEmail.trim(),
       githubId: details.githubId.trim(),
       trackRecords: details.trackRecords.map((record) => ({
@@ -665,7 +671,7 @@ function App() {
         ...values,
         updatedAt: serverTimestamp(),
       });
-      setNotice({ kind: "success", message: `Updated ${values.displayName}'s profile.` });
+      setNotice({ kind: "success", message: `Updated ${values.nickname || values.displayName}'s profile.` });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
     }
@@ -674,7 +680,7 @@ function App() {
   async function deleteEmployee(employee: EmployeeProfile) {
     if (
       !window.confirm(
-        `Delete ${employee.displayName}'s profile and all associated leave and attendance records? Their Google sign-in account will not be deleted.`,
+        `Delete ${getEmployeeDisplayName(employee)}'s profile and all associated leave and attendance records? Their Google sign-in account will not be deleted.`,
       )
     ) {
       return;
@@ -711,12 +717,12 @@ function App() {
 
       setNotice({
         kind: "success",
-        message: `Deleted ${employee.displayName}'s profile and associated records.`,
+        message: `Deleted ${getEmployeeDisplayName(employee)}'s profile and associated records.`,
       });
     } catch (actionError) {
       setNotice({
         kind: "error",
-        message: `Could not completely delete ${employee.displayName}. Some associated records may already have been deleted. ${friendlyError(actionError)}`,
+        message: `Could not completely delete ${getEmployeeDisplayName(employee)}. Some associated records may already have been deleted. ${friendlyError(actionError)}`,
       });
     }
   }
@@ -794,7 +800,7 @@ function App() {
       });
       setNotice({
         kind: "success",
-        message: `Leave balances saved for ${employee.displayName} (${formatFiscalYear(fiscalYearStart)}).`,
+        message: `Leave balances saved for ${getEmployeeDisplayName(employee)} (${formatFiscalYear(fiscalYearStart)}).`,
       });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
@@ -881,7 +887,7 @@ function App() {
       batch.set(leaveRequest, {
         employeeId: user.uid,
         employeeEmail: user.email,
-        employeeName: profile.displayName,
+        employeeName: getEmployeeDisplayName(profile),
         type,
         startDate,
         endDate,
@@ -894,7 +900,7 @@ function App() {
         employeeId: user.uid,
         event: "submitted",
         employeeEmail: user.email,
-        employeeName: profile.displayName,
+        employeeName: getEmployeeDisplayName(profile),
         type,
         startDate,
         endDate,
@@ -931,7 +937,7 @@ function App() {
       const savedNote = note.trim() || existing?.note || "";
       await setDoc(doc(db, "attendance", recordId), {
         employeeId: employee.uid,
-        employeeName: employee.displayName,
+        employeeName: getEmployeeDisplayName(employee),
         date,
         status,
         note: savedNote,
@@ -942,7 +948,7 @@ function App() {
         {
           id: recordId,
           employeeId: employee.uid,
-          employeeName: employee.displayName,
+          employeeName: getEmployeeDisplayName(employee),
           date,
           status,
           note: savedNote,
@@ -952,7 +958,7 @@ function App() {
       ]);
       setNotice({
         kind: "success",
-        message: `${employee.displayName} marked ${attendanceStatusLabel(status)} for ${formatDate(date)}.`,
+        message: `${getEmployeeDisplayName(employee)} marked ${attendanceStatusLabel(status)} for ${formatDate(date)}.`,
       });
       return true;
     } catch (actionError) {
@@ -1152,10 +1158,10 @@ function App() {
             {user.photoURL ? (
               <img className="avatar avatar-photo" src={user.photoURL} alt="" />
             ) : (
-              <Initials name={user.displayName || "ADN"} />
+              <Initials name={currentEmployeeName} />
             )}
             <span className="topbar-account-copy">
-              <strong>{user.displayName || "ADN team member"}</strong>
+              <strong>{currentEmployeeName || "ADN team member"}</strong>
               <small>{isAdmin ? "Admin" : "Team member"}</small>
             </span>
             <button className="icon-button" aria-label="Sign out" onClick={handleSignOut}>
@@ -1173,7 +1179,7 @@ function App() {
                 {activeSection === "overview"
                   ? isAdmin
                     ? "A clear view of your people operations."
-                    : `Good to see you, ${(user.displayName || "there").split(" ")[0]}. Here’s your work at a glance.`
+                    : `Good to see you, ${currentEmployeeName.split(" ")[0]}. Here’s your work at a glance.`
                   : activeSection === "leaves"
                     ? isAdmin
                       ? "Review employee requests and keep your team moving."
@@ -1285,6 +1291,7 @@ function App() {
             <AttendancePage
               isAdmin={Boolean(isAdmin)}
               user={user}
+              profile={profile}
               employees={approvedEmployees}
               records={attendance}
               leaveRequests={leaveRequests}
@@ -1297,7 +1304,7 @@ function App() {
               isAdmin={Boolean(isAdmin)}
               userId={user.uid}
               userEmail={user.email ?? ""}
-              userName={user.displayName || user.email?.split("@")[0] || "Employee"}
+              userName={currentEmployeeName}
               onNotice={(kind, message) => setNotice({ kind, message })}
             />
           )}
@@ -1306,7 +1313,7 @@ function App() {
               isAdmin={Boolean(isAdmin)}
               userId={user.uid}
               userEmail={user.email ?? ""}
-              userName={user.displayName || user.email?.split("@")[0] || "Employee"}
+              userName={currentEmployeeName}
               concerns={concerns}
               onNotice={(kind, message) => setNotice({ kind, message })}
             />
@@ -1583,7 +1590,7 @@ function Overview({
       pending: Math.max(0, reserved - taken),
     };
   };
-  const firstName = user.displayName?.split(" ")[0] || "there";
+  const firstName = profile ? getEmployeeDisplayName(profile).split(" ")[0] : user.displayName?.split(" ")[0] || "there";
   return (
     <div className={`overview-dashboard ${isAdmin ? "overview-dashboard-admin" : "overview-dashboard-employee"}`}>
       <section className={`welcome-banner overview-hero ${isAdmin ? "welcome-admin" : ""}`}>
@@ -1830,9 +1837,9 @@ function Overview({
                 <div className="approval-list">
                   {pendingEmployees.slice(0, 4).map((employee) => (
                     <div className="approval-item" key={employee.uid}>
-                      <Initials name={employee.displayName} />
+                      <Initials name={getEmployeeDisplayName(employee)} />
                       <div className="approval-copy">
-                        <strong>{employee.displayName}</strong>
+                        <strong>{getEmployeeDisplayName(employee)}</strong>
                         <span>{employee.email}</span>
                       </div>
                       <button
@@ -1948,6 +1955,7 @@ function Overview({
 function EmployeeDetailsPanel({ profile }: { profile: EmployeeProfile }) {
   const details = [
     { label: "Full name", value: profile.displayName },
+    { label: "Nickname", value: profile.nickname },
     { label: "Email", value: profile.email },
     { label: "Official email", value: profile.officialEmail },
     { label: "Phone number", value: profile.phone },
@@ -2116,7 +2124,7 @@ function LeavesPage({
     return employees.filter(
       (employee) =>
         !term ||
-        `${employee.displayName} ${employee.email}`.toLowerCase().includes(term),
+        `${getEmployeeDisplayName(employee)} ${employee.displayName} ${employee.email}`.toLowerCase().includes(term),
     );
   }, [employeeSummarySearch, employees]);
   const approvedDays = (type: LeaveType, employeeId?: string) =>
@@ -2155,7 +2163,7 @@ function LeavesPage({
             ? approvedDays("Annual leave", employee.uid)
             : employeeSummarySort === "sick"
               ? approvedDays("Sick leave", employee.uid)
-              : employee.displayName,
+              : getEmployeeDisplayName(employee),
         employeeSummarySortDirection,
       ),
     [filteredEmployeeSummaries, employeeSummarySort, employeeSummarySortDirection, approvedRequests, fiscalYearStart],
@@ -2341,8 +2349,8 @@ function LeavesPage({
                             <tr key={employee.uid}>
                               <td>
                                 <div className="person-cell">
-                                  <Initials name={employee.displayName} />
-                                  <span><strong>{employee.displayName}</strong></span>
+                                  <Initials name={getEmployeeDisplayName(employee)} />
+                                  <span><strong>{getEmployeeDisplayName(employee)}</strong></span>
                                 </div>
                               </td>
                               <td>{approvedDays("Annual leave", employee.uid)}</td>
@@ -2465,7 +2473,7 @@ function LeavesPage({
                   />
                 </label>
                 <div className="form-foot field-full">
-                  <span>Submitted by {profile?.displayName || user.displayName || user.email}</span>
+                  <span>Submitted by {profile ? getEmployeeDisplayName(profile) : user.displayName || user.email}</span>
                   <Button type="submit"><FilePlus2 size={16} /> Submit request</Button>
                 </div>
               </form>
@@ -2649,6 +2657,7 @@ function LeaveTable({
 function AttendancePage({
   isAdmin,
   user,
+  profile,
   employees,
   records,
   leaveRequests,
@@ -2657,6 +2666,7 @@ function AttendancePage({
 }: {
   isAdmin: boolean;
   user: User;
+  profile: EmployeeProfile | null;
   employees: EmployeeProfile[];
   records: AttendanceRecord[];
   leaveRequests: LeaveRequest[];
@@ -2735,7 +2745,7 @@ function AttendancePage({
     const term = rosterSearch.trim().toLowerCase();
     return employees.filter(
       (employee) =>
-        !term || `${employee.displayName} ${employee.email}`.toLowerCase().includes(term),
+        !term || `${getEmployeeDisplayName(employee)} ${employee.displayName} ${employee.email}`.toLowerCase().includes(term),
     );
   }, [employees, rosterSearch]);
   const recordPagination = usePagination(
@@ -2796,7 +2806,8 @@ function AttendancePage({
             <EmployeeAttendanceHeatmap
               employee={{
                 uid: user.uid,
-                displayName: user.displayName || user.email?.split("@")[0] || "Employee",
+                displayName: profile ? getEmployeeDisplayName(profile) : user.displayName || user.email?.split("@")[0] || "Employee",
+                nickname: profile?.nickname,
                 email: user.email || "",
               }}
               attendance={records}
@@ -2882,8 +2893,8 @@ function AttendancePage({
                         <button
                           type="button"
                           className={`attendance-roster-avatar-button attendance-roster-status-${displayStatus ?? "unmarked"}`}
-                          aria-label={`${employee.displayName}: ${attendanceStatusLabel(displayStatus ?? "Not marked")}. Choose attendance status`}
-                          title={`${employee.displayName} · ${attendanceStatusLabel(displayStatus ?? "Not marked")}`}
+                          aria-label={`${getEmployeeDisplayName(employee)}: ${attendanceStatusLabel(displayStatus ?? "Not marked")}. Choose attendance status`}
+                          title={`${getEmployeeDisplayName(employee)} · ${attendanceStatusLabel(displayStatus ?? "Not marked")}`}
                           aria-expanded={isOpen}
                           aria-controls={`attendance-quick-status-${employee.uid}`}
                           onClick={() =>
@@ -2893,7 +2904,7 @@ function AttendancePage({
                           }
                         >
                           <EmployeeAvatar
-                            name={employee.displayName}
+                            name={getEmployeeDisplayName(employee)}
                             photoURL={employee.photoURL}
                           />
                         </button>
@@ -2901,10 +2912,10 @@ function AttendancePage({
                           className="attendance-roster-quick-status"
                           id={`attendance-quick-status-${employee.uid}`}
                           role="group"
-                          aria-label={`Attendance status for ${employee.displayName}`}
+                          aria-label={`Attendance status for ${getEmployeeDisplayName(employee)}`}
                         >
                           <div className="attendance-roster-hover-heading">
-                            <strong>{employee.displayName}</strong>
+                            <strong>{getEmployeeDisplayName(employee)}</strong>
                             <div className="attendance-roster-hover-status">
                               {isSaving ? (
                                 <span className="attendance-roster-saving">Saving…</span>
@@ -2962,7 +2973,7 @@ function AttendancePage({
                               }))
                             }
                             placeholder="Add a note…"
-                            aria-label={`Optional attendance note for ${employee.displayName}; click a status to save`}
+                            aria-label={`Optional attendance note for ${getEmployeeDisplayName(employee)}; click a status to save`}
                           />
                         </div>
                       </div>
@@ -2982,7 +2993,7 @@ function AttendancePage({
         <div className="panel-heading panel-heading-search">
           <div>
             <h2>{isAdmin ? "Attendance records" : "Your attendance"}</h2>
-            <p>{isAdmin ? "Recent records for your team." : `Attendance history for ${user.displayName || "your account"}.`}</p>
+            <p>{isAdmin ? "Recent records for your team." : `Attendance history for ${profile ? getEmployeeDisplayName(profile) : user.displayName || "your account"}.`}</p>
           </div>
           {isAdmin && (
             <label className="search-field">
@@ -3155,7 +3166,7 @@ function TeamPage({
     const term = employeeSearch.trim().toLowerCase();
     const matchesSearch =
       !term ||
-      `${employee.displayName} ${employee.email}`.toLowerCase().includes(term);
+      `${getEmployeeDisplayName(employee)} ${employee.displayName} ${employee.email}`.toLowerCase().includes(term);
     return matchesFilter && matchesSearch;
   });
   const sortedVisibleEmployees = useMemo(
@@ -3167,7 +3178,7 @@ function TeamPage({
             ? employee.createdAt?.toDate().getTime()
             : employeeSort === "access"
               ? employee.status
-              : employee.displayName,
+              : getEmployeeDisplayName(employee),
         employeeSortDirection,
       ),
     [visibleEmployees, employeeSort, employeeSortDirection],
@@ -3287,8 +3298,8 @@ function TeamPage({
                     <tr key={employee.uid}>
                       <td>
                         <div className="person-cell">
-                          <Initials name={employee.displayName} />
-                          <span><strong>{employee.displayName}</strong><small>{employee.email}</small></span>
+                          <Initials name={getEmployeeDisplayName(employee)} />
+                          <span><strong>{getEmployeeDisplayName(employee)}</strong><small>{employee.email}</small></span>
                         </div>
                       </td>
                       <td>{formatTimestamp(employee.createdAt)}</td>
@@ -3401,7 +3412,7 @@ function EmployeeAttendanceHeatmap({
   attendance,
   leaveRequests,
 }: {
-  employee: Pick<EmployeeProfile, "uid" | "displayName" | "email">;
+  employee: Pick<EmployeeProfile, "uid" | "displayName" | "nickname" | "email">;
   attendance: AttendanceRecord[];
   leaveRequests: LeaveRequest[];
 }) {
@@ -3465,8 +3476,8 @@ function EmployeeAttendanceHeatmap({
     <article className="employee-attendance">
       <div className="employee-attendance-heading">
         <div className="employee-attendance-person">
-          <Initials name={employee.displayName} />
-          <span><strong>{employee.displayName}</strong><small>{employee.email}</small></span>
+          <Initials name={getEmployeeDisplayName(employee)} />
+          <span><strong>{getEmployeeDisplayName(employee)}</strong><small>{employee.email}</small></span>
         </div>
       </div>
       <div className="employee-heatmap-scroll">
@@ -3542,6 +3553,7 @@ function EmployeeProfileDetailsPanel({
   onClose: () => void;
 }) {
   const [displayName, setDisplayName] = useState(employee.displayName);
+  const [nickname, setNickname] = useState(employee.nickname ?? "");
   const [officialEmail, setOfficialEmail] = useState(employee.officialEmail ?? "");
   const [githubId, setGithubId] = useState(employee.githubId ?? "");
   const [trackRecords, setTrackRecords] = useState<TrackRecord[]>(
@@ -3554,7 +3566,7 @@ function EmployeeProfileDetailsPanel({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(employee, { displayName, officialEmail, githubId, trackRecords, phone });
+      await onSave(employee, { displayName, nickname, officialEmail, githubId, trackRecords, phone });
     } finally {
       setSaving(false);
     }
@@ -3577,6 +3589,15 @@ function EmployeeProfileDetailsPanel({
             maxLength={120}
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          Nickname
+          <input
+            maxLength={120}
+            value={nickname}
+            onChange={(event) => setNickname(event.target.value)}
+            placeholder="Name they go by"
           />
         </label>
         <label className="field">
@@ -3771,7 +3792,7 @@ function LeaveBalanceEditor({
       <label>
         <span>Annual</span>
         <input
-          aria-label={`Annual leave days for ${employee.displayName} in ${formatFiscalYear(fiscalYearStart)}`}
+          aria-label={`Annual leave days for ${getEmployeeDisplayName(employee)} in ${formatFiscalYear(fiscalYearStart)}`}
           type="number"
           min="0"
           step="1"
@@ -3784,7 +3805,7 @@ function LeaveBalanceEditor({
       <label>
         <span>Sick</span>
         <input
-          aria-label={`Sick leave days for ${employee.displayName} in ${formatFiscalYear(fiscalYearStart)}`}
+          aria-label={`Sick leave days for ${getEmployeeDisplayName(employee)} in ${formatFiscalYear(fiscalYearStart)}`}
           type="number"
           min="0"
           step="1"

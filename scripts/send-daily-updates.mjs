@@ -184,7 +184,7 @@ const submitted = new Set(updates.map((u) => u.employeeId));
 const missing = usersSnap.docs
   .map((d) => d.data())
   .filter((u) => !submitted.has(u.uid))
-  .map((u) => u.displayName || u.email)
+  .map((u) => u.nickname?.trim() || u.displayName || u.email)
   .sort((a, b) => a.localeCompare(b));
 
 const text = [`Daily updates for ${reportDate}`, ""];
