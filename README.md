@@ -26,7 +26,7 @@ Then deploy the updated rules (`npx firebase-tools deploy --only firestore:rules
 
 ## Leave request emails
 
-The `.github/workflows/leave-notifications.yml` workflow checks the Firestore notification queue every five minutes and uses the same GitHub Actions SMTP secrets as the daily-update workflow. New requests and administrator decisions are queued atomically with their leave-request writes. Each notification is emailed to the employee's official email (falling back to their sign-in email if no official email is set) and `info@adnsemicon.com`; the queue entry is removed only after SMTP accepts the email. If sending fails, the queued notification remains for a later workflow run. GitHub cron can start a few minutes late.
+The `.github/workflows/leave-notifications.yml` workflow checks the Firestore notification queue hourly and uses the same GitHub Actions SMTP secrets as the daily-update workflow. New requests and administrator decisions are queued atomically with their leave-request writes. Each notification is emailed to the employee's official email (falling back to their sign-in email if no official email is set) and `info@adnsemicon.com`; the queue entry is removed only after SMTP accepts the email. If sending fails, the queued notification remains for a later workflow run. GitHub cron can start a few minutes late.
 
 No additional SMTP secrets are needed. Deploy the updated Firestore rules with `npx firebase-tools deploy --only firestore:rules --project adn-employee-management-system` so clients can enqueue notifications securely.
 
