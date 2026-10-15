@@ -15,7 +15,7 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 
 ## Daily updates
 
-Approved employees open **Daily update** and fill four bullet-point sections: Today's Tasks, Sudden Tasks, Blockers, and Plans Going Forward. They can submit, edit, or remove updates for the current reporting day until 11:30 PM Asia/Dhaka (enforced by Firestore rules). At 11:30 PM the `.github/workflows/daily-updates.yml` workflow runs `scripts/send-daily-updates.mjs`, which emails that day's updates in a table (Name, Email, Today's Tasks, Sudden Tasks, Blockers, Plans Going Forward), plus employees who didn't submit, to `info@adnsemicon.com`. It sends each submitting employee a private copy of their own update at their official email, falling back to their sign-in email when no official email is on their profile. Administrators can set an employee's official email in the employee profile editor. It deletes the `dailyUpdates` documents only after all emails are accepted. Only then does the next calendar day's reporting window open; it remains open until 11:30 PM. If sending fails, submissions remain closed and the workflow can be re-run manually.
+Approved employees open **Daily update** and fill four bullet-point sections: Today's Tasks, Sudden Tasks, Blockers, and Plans Going Forward. They can submit, edit, or remove updates for the current reporting day until 11:30 PM Asia/Dhaka (enforced by Firestore rules). At 11:30 PM the `.github/workflows/daily-updates.yml` workflow runs `scripts/send-daily-updates.mjs`, which emails that day's updates in a table (Name, Email, Today's Tasks, Sudden Tasks, Blockers, Plans Going Forward), plus employees who didn't submit, to `info@adnsemicon.com`. Administrators can assign each employee an approved reporting manager in the employee profile editor. Each assigned manager receives a separate daily email containing only their direct reports' updates and any direct reports who did not submit. The company-wide email remains unchanged. Each submitting employee also receives a private copy of their own update at their official email, falling back to their sign-in email when no official email is on their profile. Administrators can set an employee's official email in the employee profile editor. It deletes the `dailyUpdates` documents only after all emails are accepted. Only then does the next calendar day's reporting window open; it remains open until 11:30 PM. If sending fails, submissions remain closed and the workflow can be re-run manually.
 
 Add these GitHub repository secrets (**Settings → Secrets and variables → Actions**):
 
@@ -82,7 +82,7 @@ The deployed site will be available at `https://adn-vlsi.github.io/ems/`.
 
 ## Data model
 
-- `users/{uid}`: verified email, display name, GitHub ID, track records, phone, and admin-controlled approval status.
+- `users/{uid}`: verified email, display name, optional reporting manager ID, GitHub ID, track records, phone, and admin-controlled approval status.
 - `leaveRequests/{requestId}`: employee-owned submissions and admin-controlled decisions.
 - `attendance/{uid_YYYY-MM-DD}`: daily status entered by the administrator.
 - `notices/{noticeId}`: announcements published and managed by the administrator.

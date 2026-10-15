@@ -99,6 +99,31 @@ function renderAdminTable(updates) {
   return { text, html };
 }
 
+function renderDailyReport(reportDate, updates, missing) {
+  const text = [`Daily updates for ${reportDate}`, ""];
+  const html = [`<h2>Daily updates for ${escapeHtml(reportDate)}</h2>`];
+
+  if (!updates.length) {
+    text.push("No updates were submitted for this reporting day.", "");
+    html.push("<p>No updates were submitted for this reporting day.</p>");
+  } else {
+    const table = renderAdminTable(updates);
+    text.push(table.text, "");
+    html.push(table.html);
+  }
+
+  if (missing.length) {
+    text.push("No update submitted by:", ...missing.map((name) => `  • ${name}`));
+    html.push(
+      `<h4>No update submitted by</h4><ul>${missing
+        .map((name) => `<li>${escapeHtml(name)}</li>`)
+        .join("")}</ul>`,
+    );
+  }
+
+  return { text: text.join("\n"), html: html.join("\n") };
+}
+
 function dhakaDate(now) {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-CA", {
@@ -181,28 +206,49 @@ const updates = updatesSnap.docs
   .map((d) => ({ ref: d.ref, ...d.data() }))
   .sort((a, b) => String(a.employeeName).localeCompare(String(b.employeeName)));
 const submitted = new Set(updates.map((u) => u.employeeId));
-const missing = usersSnap.docs
-  .map((d) => d.data())
-  .filter((u) => !submitted.has(u.uid))
-  .map((u) => u.nickname?.trim() || u.displayName || u.email)
+const employees = usersSnap.docs.map((document) => ({
+  ...document.data(),
+  uid: document.id,
+}));
+const employeesById = new Map(employees.map((employee) => [employee.uid, employee]));
+const reportingTeams = new Map();
+
+for (const employee of employees) {
+  const managerId =
+    typeof employee.reportingManagerId === "string" ? employee.reportingManagerId.trim() : "";
+  if (!managerId) continue;
+
+  const manager = employeesById.get(managerId);
+  if (!manager) {
+    throw new Error(
+      `Reporting manager ${managerId} for ${employee.nickname?.trim() || employee.displayName || employee.uid} is not an approved employee; update the employee profile before sending reports.`,
+    );
+  }
+
+  const officialEmail =
+    typeof manager.officialEmail === "string" ? manager.officialEmail.trim() : "";
+  const managerEmail =
+    officialEmail || (typeof manager.email === "string" ? manager.email.trim() : "");
+  if (!managerEmail) {
+    throw new Error(
+      `Reporting manager ${manager.nickname?.trim() || manager.displayName || manager.uid} has no email address.`,
+    );
+  }
+
+  const team = reportingTeams.get(managerId) ?? {
+    manager,
+    recipient: managerEmail,
+    employees: [],
+  };
+  team.employees.push(employee);
+  reportingTeams.set(managerId, team);
+}
+
+const missing = employees
+  .filter((employee) => !submitted.has(employee.uid))
+  .map((employee) => employee.nickname?.trim() || employee.displayName || employee.email || employee.uid)
   .sort((a, b) => a.localeCompare(b));
-
-const text = [`Daily updates for ${reportDate}`, ""];
-const html = [`<h2>Daily updates for ${reportDate}</h2>`];
-
-if (!updates.length) {
-  text.push("No updates were submitted for this reporting day.", "");
-  html.push("<p>No updates were submitted for this reporting day.</p>");
-} else {
-  const table = renderAdminTable(updates);
-  text.push(table.text, "");
-  html.push(table.html);
-}
-
-if (missing.length) {
-  text.push("No update submitted by:", ...missing.map((n) => `  • ${n}`));
-  html.push(`<h4>No update submitted by</h4><ul>${missing.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>`);
-}
+const companyReport = renderDailyReport(reportDate, updates, missing);
 
 const port = Number(process.env.SMTP_PORT || 465);
 const transport = nodemailer.createTransport({
@@ -225,10 +271,32 @@ await sendEmail({
   from,
   to: RECIPIENT,
   subject: `Daily updates – ${reportDate}`,
-  text: text.join("\n"),
-  html: html.join("\n"),
+  text: companyReport.text,
+  html: companyReport.html,
 });
 console.log(`Sent ${updates.length} update(s) to ${RECIPIENT}`);
+
+const updatesByEmployee = new Map(updates.map((update) => [update.employeeId, update]));
+for (const { manager, recipient, employees: directReports } of reportingTeams.values()) {
+  const teamUpdates = directReports
+    .map((employee) => updatesByEmployee.get(employee.uid))
+    .filter(Boolean)
+    .sort((first, second) => String(first.employeeName).localeCompare(String(second.employeeName)));
+  const teamMissing = directReports
+    .filter((employee) => !submitted.has(employee.uid))
+    .map((employee) => employee.nickname?.trim() || employee.displayName || employee.email || employee.uid)
+    .sort((first, second) => first.localeCompare(second));
+  const report = renderDailyReport(reportDate, teamUpdates, teamMissing);
+  const managerName = manager.nickname?.trim() || manager.displayName || manager.email;
+  await sendEmail({
+    from,
+    to: recipient,
+    subject: `Daily updates for your team – ${reportDate}`,
+    text: [`Hello ${managerName},`, "", report.text].join("\n"),
+    html: [`<p>Hello ${escapeHtml(managerName)},</p>`, report.html].join("\n"),
+  });
+  console.log(`Sent ${teamUpdates.length} direct-report update(s) to ${recipient}`);
+}
 
 for (const update of updates) {
   const rendered = renderUpdate(update);

@@ -86,7 +86,7 @@ service cloud.firestore {
             )
             || (
               request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                'displayName', 'nickname', 'officialEmail', 'githubId', 'trackRecords', 'phone', 'updatedAt'
+                'displayName', 'nickname', 'officialEmail', 'reportingManagerId', 'githubId', 'trackRecords', 'phone', 'updatedAt'
               ])
               && request.resource.data.displayName is string
               && request.resource.data.displayName.size() > 0
@@ -98,6 +98,16 @@ service cloud.firestore {
               && (
                 request.resource.data.officialEmail == ''
                 || request.resource.data.officialEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
+              )
+              && request.resource.data.reportingManagerId is string
+              && request.resource.data.reportingManagerId.size() <= 128
+              && (
+                request.resource.data.reportingManagerId == ''
+                || (
+                  request.resource.data.reportingManagerId != userId
+                  && exists(/databases/$(database)/documents/users/$(request.resource.data.reportingManagerId))
+                  && get(/databases/$(database)/documents/users/$(request.resource.data.reportingManagerId)).data.status == 'approved'
+                )
               )
               && request.resource.data.githubId is string
               && request.resource.data.githubId.size() <= 39

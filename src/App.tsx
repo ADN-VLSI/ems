@@ -89,6 +89,7 @@ type EmployeeProfileDetails = {
   displayName: string;
   nickname: string;
   officialEmail: string;
+  reportingManagerId: string;
   githubId: string;
   trackRecords: TrackRecord[];
   phone: string;
@@ -642,6 +643,7 @@ function App() {
       displayName: details.displayName.trim(),
       nickname: details.nickname.trim(),
       officialEmail: details.officialEmail.trim(),
+      reportingManagerId: details.reportingManagerId.trim(),
       githubId: details.githubId.trim(),
       trackRecords: details.trackRecords.map((record) => ({
         role: record.role.trim(),
@@ -3352,6 +3354,7 @@ function TeamPage({
           <EmployeeProfileDetailsPanel
             key={selectedEmployee.uid}
             employee={selectedEmployee}
+            employees={employees}
             onSave={onSaveEmployeeDetails}
             onClose={() => setProfileEmployeeId(null)}
           />
@@ -3542,10 +3545,12 @@ function EmployeeAttendanceHeatmap({
 
 function EmployeeProfileDetailsPanel({
   employee,
+  employees,
   onSave,
   onClose,
 }: {
   employee: EmployeeProfile;
+  employees: EmployeeProfile[];
   onSave: (
     employee: EmployeeProfile,
     details: EmployeeProfileDetails,
@@ -3555,6 +3560,7 @@ function EmployeeProfileDetailsPanel({
   const [displayName, setDisplayName] = useState(employee.displayName);
   const [nickname, setNickname] = useState(employee.nickname ?? "");
   const [officialEmail, setOfficialEmail] = useState(employee.officialEmail ?? "");
+  const [reportingManagerId, setReportingManagerId] = useState(employee.reportingManagerId ?? "");
   const [githubId, setGithubId] = useState(employee.githubId ?? "");
   const [trackRecords, setTrackRecords] = useState<TrackRecord[]>(
     employee.trackRecords ?? [],
@@ -3566,7 +3572,15 @@ function EmployeeProfileDetailsPanel({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(employee, { displayName, nickname, officialEmail, githubId, trackRecords, phone });
+      await onSave(employee, {
+        displayName,
+        nickname,
+        officialEmail,
+        reportingManagerId,
+        githubId,
+        trackRecords,
+        phone,
+      });
     } finally {
       setSaving(false);
     }
@@ -3613,6 +3627,25 @@ function EmployeeProfileDetailsPanel({
             onChange={(event) => setOfficialEmail(event.target.value)}
             placeholder="name@company.com"
           />
+        </label>
+        <label className="field">
+          Reporting manager
+          <select
+            value={reportingManagerId}
+            onChange={(event) => setReportingManagerId(event.target.value)}
+          >
+            <option value="">No manager assigned</option>
+            {employees
+              .filter((candidate) => candidate.status === "approved" && candidate.uid !== employee.uid)
+              .sort((first, second) =>
+                getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)),
+              )
+              .map((manager) => (
+                <option key={manager.uid} value={manager.uid}>
+                  {getEmployeeDisplayName(manager)} ({manager.email})
+                </option>
+              ))}
+          </select>
         </label>
         <label className="field">
           GitHub ID

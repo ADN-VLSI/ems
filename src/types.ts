@@ -30,6 +30,7 @@ export interface EmployeeProfile {
   displayName: string;
   nickname?: string;
   status: ApprovalStatus;
+  reportingManagerId?: string;
   githubId?: string;
   trackRecords?: TrackRecord[];
   phone?: string;
