@@ -20,7 +20,7 @@ Effective_Date: 12 October 2026
 
 - **Allowance:** 14 days per fiscal year. Additional medically necessary leave may be granted based on the recommendation of a healthcare professional.
 - **Extended Absence:** Continuous sick leave exceeding 10 working days is unpaid from the 11th working day, regardless of unused annual sick-leave allowance. However, exceptions may be considered based on medical recommendations.
-- **Notification:** **Notify the management as soon as reasonably practicable via email**, preferably before 11:00 AM on the day of absence.
+- **Notification:** **Notify the management as soon as reasonably practicable via EMS portal**, preferably before 11:00 AM on the day of absence.
 - **Incapacity:** If you cannot notify the management yourself, notify them as soon as reasonable, directly or through an appropriate contact.
 - **Medical Documentation:** A doctor's report or other appropriate medical evidence may be required for more than 2 working days of absence within a rolling 30-day period.
 - **Confidentiality:** **Submit medical documents privately to the designated authority, not in public team channels.**
