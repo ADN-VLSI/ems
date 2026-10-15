@@ -32,8 +32,11 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow get: if isAdmin() || (signedIn() && request.auth.uid == userId);
-      allow list: if isAdmin();
+      allow get: if isAdmin()
+        || (signedIn() && request.auth.uid == userId)
+        || (isApprovedEmployee() && resource.data.status == 'approved');
+      allow list: if isAdmin()
+        || (isApprovedEmployee() && resource.data.status == 'approved');
 
       allow create: if signedIn()
         && request.auth.uid == userId

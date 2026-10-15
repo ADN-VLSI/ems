@@ -85,11 +85,17 @@ export function listenToProfile(
 }
 
 export function listenToEmployees(
+  isAdmin: boolean,
   next: (employees: EmployeeProfile[]) => void,
   fail: (error: Error) => void,
 ): Unsubscribe {
+  const employees = collection(db, "users");
+  const employeeQuery = isAdmin
+    ? query(employees, orderBy("createdAt", "desc"))
+    : query(employees, where("status", "==", "approved"));
+
   return onSnapshot(
-    query(collection(db, "users"), orderBy("createdAt", "desc")),
+    employeeQuery,
     (snapshot) => next(asRecords<EmployeeProfile>(snapshot)),
     fail,
   );

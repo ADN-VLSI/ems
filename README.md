@@ -8,7 +8,7 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 - New employees stay pending until the ADN administrator (`adn.semicon@gmail.com`) approves them.
 - Approved employees can submit leave requests and view their decisions.
 - Employees can view attendance; only the administrator can add or change attendance records.
-- Approved employees can view their own profile details in the My profile section, including official email, phone, GitHub ID, and track records.
+- Approved employees can view their own profile details and assigned manager in the My profile section, and browse other approved employee profiles in the Employee directory.
 - Administrators can edit employee display names and attendance records, review or delete leave requests, and delete attendance records. Deleting an employee profile also deletes their associated leave and attendance records, but does not delete their Google sign-in account.
 - The notice board has its own navigation section. It appears below the daily update summary in the employee overview and is omitted from the admin overview. Administrators can publish and manage notices in its dedicated section. Employee profiles include editable display name, GitHub ID, track records, and phone details.
 - Firestore security rules enforce these permissions independently of the UI.

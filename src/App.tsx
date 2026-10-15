@@ -545,9 +545,7 @@ function App() {
       setConcerns,
       fail,
     );
-    const stopEmployees = isAdmin
-      ? listenToEmployees(setEmployees, fail)
-      : () => setEmployees([]);
+    const stopEmployees = listenToEmployees(Boolean(isAdmin), setEmployees, fail);
 
     return () => {
       stopLeaves();
@@ -1160,6 +1158,15 @@ function App() {
               My profile
             </NavButton>
           )}
+          {!isAdmin && (
+            <NavButton
+              icon={<Users size={18} />}
+              active={activeSection === "team"}
+              onClick={() => { setSection("team"); setMobileNavOpen(false); }}
+            >
+              Employee directory
+            </NavButton>
+          )}
           {!isAdmin && <span className="nav-label">POLICIES</span>}
           {!isAdmin && (
             <>
@@ -1327,7 +1334,11 @@ function App() {
             <PolicyPage policyId="career-policy" />
           )}
           {activeSection === "profile" && !isAdmin && profile && (
-            <EmployeeDetailsPanel profile={profile} />
+            <EmployeeDetailsPanel
+              profile={profile}
+              employees={approvedEmployees}
+              isOwnProfile
+            />
           )}
           {activeSection === "leaves" && (
             <LeavesPage
@@ -1384,6 +1395,9 @@ function App() {
               onDeleteMonthlyRecords={deleteMonthlyRecords}
               onNotice={(kind, message) => setNotice({ kind, message })}
             />
+          )}
+          {activeSection === "team" && !isAdmin && (
+            <EmployeeDirectoryPage employees={approvedEmployees} />
           )}
         </div>
         <footer className="page-footer">
@@ -2007,22 +2021,48 @@ function Overview({
   );
 }
 
-function EmployeeDetailsPanel({ profile }: { profile: EmployeeProfile }) {
+function EmployeeDetailsPanel({
+  profile,
+  employees,
+  isOwnProfile = false,
+  onClose,
+}: {
+  profile: EmployeeProfile;
+  employees: EmployeeProfile[];
+  isOwnProfile?: boolean;
+  onClose?: () => void;
+}) {
+  const manager = employees.find(
+    (employee) => employee.uid === profile.reportingManagerId,
+  );
+  const sortedTrackRecords = [...(profile.trackRecords ?? [])].sort((first, second) =>
+    second.startDate.localeCompare(first.startDate),
+  );
   const details = [
     { label: "Full name", value: profile.displayName },
     { label: "Nickname", value: profile.nickname },
+    { label: "Current designation", value: getCurrentDesignation(profile) },
     { label: "Email", value: profile.email },
     { label: "Official email", value: profile.officialEmail },
     { label: "Phone number", value: profile.phone },
     { label: "GitHub ID", value: profile.githubId },
+    {
+      label: isOwnProfile ? "Your manager" : "Reporting to",
+      value: manager ? getEmployeeDisplayName(manager) : undefined,
+    },
   ];
 
   return (
     <section className="panel employee-details-panel">
-      <PanelHeading
-        title="Your details"
-        subtitle="Your employee profile information."
-      />
+      <div className="panel-heading panel-heading-search">
+        <div>
+          <h2>{isOwnProfile ? "Your details" : "Employee profile"}</h2>
+          <p>{isOwnProfile ? "Your employee profile information." : "Employee profile information."}</p>
+        </div>
+        {onClose && (
+          <Button variant="secondary" onClick={onClose}>Close profile</Button>
+        )}
+      </div>
       <dl className="employee-detail-grid">
         {details.map(({ label, value }) => (
           <div className="employee-detail" key={label}>
@@ -2033,9 +2073,9 @@ function EmployeeDetailsPanel({ profile }: { profile: EmployeeProfile }) {
       </dl>
       <div className="employee-track-records">
         <h3>Track records</h3>
-        {profile.trackRecords?.length ? (
+        {sortedTrackRecords.length ? (
           <ul>
-            {profile.trackRecords.map((record, index) => (
+            {sortedTrackRecords.map((record, index) => (
               <li key={`${record.role}-${record.startDate}-${index}`}>
                 <strong>{record.role}</strong>
                 <span>
@@ -2050,6 +2090,113 @@ function EmployeeDetailsPanel({ profile }: { profile: EmployeeProfile }) {
         )}
       </div>
     </section>
+  );
+}
+
+function getCurrentDesignation(
+  employee: Pick<EmployeeProfile, "trackRecords">,
+): string | undefined {
+  return employee.trackRecords?.find((record) => !record.endDate)?.role.trim() || undefined;
+}
+
+function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) {
+  const [search, setSearch] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const searchTerm = search.trim().toLowerCase();
+  const visibleEmployees = employees
+    .filter((employee) => {
+      const manager = employees.find(
+        (candidate) => candidate.uid === employee.reportingManagerId,
+      );
+      return `${getEmployeeDisplayName(employee)} ${employee.displayName} ${employee.email} ${employee.officialEmail ?? ""} ${manager ? getEmployeeDisplayName(manager) : ""}`
+        .toLowerCase()
+        .includes(searchTerm);
+    })
+    .sort((first, second) =>
+      getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)),
+    );
+  const selectedEmployee = employees.find(
+    (employee) => employee.uid === selectedEmployeeId,
+  );
+
+  return (
+    <div className="content-stack">
+      <section className="panel">
+        <div className="panel-heading panel-heading-search">
+          <div>
+            <h2>Employee directory</h2>
+            <p>Browse approved employee profiles and reporting relationships.</p>
+          </div>
+          <label className="search-field">
+            <Search size={16} />
+            <input
+              type="search"
+              value={search}
+              placeholder="Search employees"
+              aria-label="Search employee directory"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+        </div>
+        {visibleEmployees.length ? (
+          <div className="table-wrap">
+            <table className="team-table">
+              <thead>
+                <tr>
+                  <th>EMPLOYEE</th>
+                  <th>CURRENT DESIGNATION</th>
+                  <th>REPORTING TO</th>
+                  <th className="align-right">PROFILE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleEmployees.map((employee) => {
+                  const manager = employees.find(
+                    (candidate) => candidate.uid === employee.reportingManagerId,
+                  );
+                  return (
+                    <tr key={employee.uid}>
+                      <td>
+                        <div className="person-cell">
+                          <Initials name={getEmployeeDisplayName(employee)} />
+                          <span>
+                            <strong>{getEmployeeDisplayName(employee)}</strong>
+                            <small>{employee.officialEmail || employee.email}</small>
+                          </span>
+                        </div>
+                      </td>
+                      <td>{getCurrentDesignation(employee) || "Not provided"}</td>
+                      <td>{manager ? getEmployeeDisplayName(manager) : "Not assigned"}</td>
+                      <td className="align-right">
+                        <Button
+                          variant="secondary"
+                          onClick={() => setSelectedEmployeeId(employee.uid)}
+                        >
+                          View profile
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            icon={<Users size={20} />}
+            title={employees.length ? "No matching employees" : "No employee profiles"}
+            text={employees.length ? "Try another name, email, or manager." : "Approved employee profiles will appear here."}
+          />
+        )}
+      </section>
+      {selectedEmployee && (
+        <EmployeeDetailsPanel
+          profile={selectedEmployee}
+          employees={employees}
+          onClose={() => setSelectedEmployeeId(null)}
+        />
+      )}
+    </div>
   );
 }
 
