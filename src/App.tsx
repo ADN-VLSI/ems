@@ -806,58 +806,29 @@ function App() {
     status: Exclude<LeaveStatus, "pending">,
   ) {
     try {
-      await updateDoc(doc(db, "leaveRequests", request.id), {
+      const batch = writeBatch(db);
+      batch.update(doc(db, "leaveRequests", request.id), {
         status,
         reviewedAt: serverTimestamp(),
         reviewedBy: user?.email,
       });
+      batch.set(doc(db, "leaveNotifications", `${request.id}_${status}`), {
+        requestId: request.id,
+        employeeId: request.employeeId,
+        event: status,
+        employeeEmail: request.employeeEmail,
+        employeeName: request.employeeName,
+        type: request.type,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        reason: request.reason,
+        createdAt: serverTimestamp(),
+      });
+      await batch.commit();
       setNotice({
         kind: "success",
         message: `Leave request ${status === "approved" ? "approved" : "declined"}.`,
       });
-    } catch (actionError) {
-      setNotice({ kind: "error", message: friendlyError(actionError) });
-    }
-  }
-
-  async function editLeaveRequest(request: LeaveRequest) {
-    const type = window.prompt(
-      "Leave type (Annual leave or Sick leave)",
-      request.type,
-    );
-    if (type === null) return;
-    const startDate = window.prompt("Start date (YYYY-MM-DD)", request.startDate);
-    if (startDate === null) return;
-    const endDate = window.prompt("End date (YYYY-MM-DD)", request.endDate);
-    if (endDate === null) return;
-    const reason = window.prompt("Reason", request.reason);
-    if (reason === null) return;
-
-    const trimmedReason = reason.trim();
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (
-      (type !== "Annual leave" && type !== "Sick leave") ||
-      !datePattern.test(startDate) ||
-      !datePattern.test(endDate) ||
-      endDate < startDate ||
-      trimmedReason.length < 3 ||
-      trimmedReason.length > 1000
-    ) {
-      setNotice({
-        kind: "error",
-        message: "Enter a valid leave type, date range, and reason (3–1000 characters).",
-      });
-      return;
-    }
-
-    try {
-      await updateDoc(doc(db, "leaveRequests", request.id), {
-        type,
-        startDate,
-        endDate,
-        reason: trimmedReason,
-      });
-      setNotice({ kind: "success", message: "Leave request updated." });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
     }
@@ -905,7 +876,9 @@ function App() {
     }
 
     try {
-      await addDoc(collection(db, "leaveRequests"), {
+      const leaveRequest = doc(collection(db, "leaveRequests"));
+      const batch = writeBatch(db);
+      batch.set(leaveRequest, {
         employeeId: user.uid,
         employeeEmail: user.email,
         employeeName: profile.displayName,
@@ -916,6 +889,19 @@ function App() {
         status: "pending",
         createdAt: serverTimestamp(),
       });
+      batch.set(doc(db, "leaveNotifications", `${leaveRequest.id}_submitted`), {
+        requestId: leaveRequest.id,
+        employeeId: user.uid,
+        event: "submitted",
+        employeeEmail: user.email,
+        employeeName: profile.displayName,
+        type,
+        startDate,
+        endDate,
+        reason,
+        createdAt: serverTimestamp(),
+      });
+      await batch.commit();
       formElement.reset();
       setNotice({ kind: "success", message: "Your leave request has been submitted." });
     } catch (actionError) {
@@ -972,43 +958,6 @@ function App() {
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
       return false;
-    }
-  }
-
-  async function editAttendanceRecord(record: AttendanceRecord) {
-    const status = window.prompt(
-      "Attendance status (present, late, absent, annual-leave, sick-leave, or leave)",
-      record.status,
-    );
-    if (status === null) return;
-    if (
-      status !== "present" &&
-      status !== "late" &&
-      status !== "absent" &&
-      status !== "leave" &&
-      status !== "annual-leave" &&
-      status !== "sick-leave"
-    ) {
-      setNotice({ kind: "error", message: "Choose a valid attendance status." });
-      return;
-    }
-    const note = window.prompt("Attendance note (up to 240 characters)", record.note);
-    if (note === null) return;
-    if (note.length > 240) {
-      setNotice({ kind: "error", message: "Attendance notes must be 240 characters or fewer." });
-      return;
-    }
-
-    try {
-      await updateDoc(doc(db, "attendance", record.id), {
-        status,
-        note,
-        recordedAt: serverTimestamp(),
-        recordedBy: user?.email,
-      });
-      setNotice({ kind: "success", message: "Attendance record updated." });
-    } catch (actionError) {
-      setNotice({ kind: "error", message: friendlyError(actionError) });
     }
   }
 
@@ -1329,7 +1278,6 @@ function App() {
               requests={leaveRequests}
               onSubmit={submitLeave}
               onReview={reviewLeave}
-              onEditRequest={editLeaveRequest}
               onDeleteRequest={deleteLeaveRequest}
             />
           )}
@@ -1341,7 +1289,6 @@ function App() {
               records={attendance}
               leaveRequests={leaveRequests}
               onSetStatus={recordAttendance}
-              onEditRecord={editAttendanceRecord}
               onDeleteRecord={deleteAttendanceRecord}
             />
           )}
@@ -2126,7 +2073,6 @@ function LeavesPage({
   requests,
   onSubmit,
   onReview,
-  onEditRequest,
   onDeleteRequest,
 }: {
   isAdmin: boolean;
@@ -2136,7 +2082,6 @@ function LeavesPage({
   requests: LeaveRequest[];
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onReview: (request: LeaveRequest, status: Exclude<LeaveStatus, "pending">) => void;
-  onEditRequest: (request: LeaveRequest) => void;
   onDeleteRequest: (request: LeaveRequest) => void;
 }) {
   const [pendingSearch, setPendingSearch] = useState("");
@@ -2334,7 +2279,6 @@ function LeavesPage({
             <LeaveTable
               requests={requests}
               showEmployee
-              onEdit={onEditRequest}
               onDelete={onDeleteRequest}
             />
           </section>
@@ -2540,12 +2484,10 @@ function LeavesPage({
 function LeaveTable({
   requests,
   showEmployee,
-  onEdit,
   onDelete,
 }: {
   requests: LeaveRequest[];
   showEmployee: boolean;
-  onEdit?: (request: LeaveRequest) => void;
   onDelete?: (request: LeaveRequest) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -2662,7 +2604,7 @@ function LeaveTable({
                   <th>DAYS</th>
                   <th>SUBMITTED</th>
                   <th>STATUS</th>
-                  {(onEdit || onDelete) && <th className="align-right">ACTIONS</th>}
+                  {onDelete && <th className="align-right">ACTIONS</th>}
                 </tr>
               </thead>
               <tbody>
@@ -2681,19 +2623,12 @@ function LeaveTable({
                     <td>{dayCount(request.startDate, request.endDate)}</td>
                     <td>{formatTimestamp(request.createdAt)}</td>
                     <td><StatusPill status={request.status} /></td>
-                    {(onEdit || onDelete) && (
+                    {onDelete && (
                       <td className="align-right">
                         <div className="decision-actions">
-                          {onEdit && (
-                            <Button variant="secondary" onClick={() => onEdit(request)}>
-                              <Pencil size={15} /> Edit
-                            </Button>
-                          )}
-                          {onDelete && (
-                            <Button variant="secondary" onClick={() => onDelete(request)}>
-                              <Trash2 size={15} /> Delete
-                            </Button>
-                          )}
+                          <Button variant="secondary" onClick={() => onDelete(request)}>
+                            <Trash2 size={15} /> Delete
+                          </Button>
                         </div>
                       </td>
                     )}
@@ -2718,7 +2653,6 @@ function AttendancePage({
   records,
   leaveRequests,
   onSetStatus,
-  onEditRecord,
   onDeleteRecord,
 }: {
   isAdmin: boolean;
@@ -2732,7 +2666,6 @@ function AttendancePage({
     status: AttendanceStatus,
     note: string,
   ) => Promise<boolean>;
-  onEditRecord: (record: AttendanceRecord) => void;
   onDeleteRecord: (record: AttendanceRecord) => void;
 }) {
   const [search, setSearch] = useState("");
@@ -3148,9 +3081,6 @@ function AttendancePage({
                       {isAdmin && (
                         <td className="align-right">
                           <div className="decision-actions">
-                            <Button variant="secondary" onClick={() => onEditRecord(record)}>
-                              <Pencil size={15} /> Edit
-                            </Button>
                             <Button variant="secondary" onClick={() => onDeleteRecord(record)}>
                               <Trash2 size={15} /> Delete
                             </Button>

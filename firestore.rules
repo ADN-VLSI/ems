@@ -150,33 +150,63 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       allow update: if isAdmin()
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'reviewedAt', 'reviewedBy'
+        ])
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.reviewedAt == request.time
+        && request.resource.data.reviewedBy == request.auth.token.email;
+
+      allow delete: if isAdmin();
+    }
+
+    match /leaveNotifications/{notificationId} {
+      allow create: if request.resource.data.keys().hasAll([
+          'requestId', 'employeeId', 'event', 'employeeEmail', 'employeeName',
+          'type', 'startDate', 'endDate', 'reason', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'requestId', 'employeeId', 'event', 'employeeEmail', 'employeeName',
+          'type', 'startDate', 'endDate', 'reason', 'createdAt'
+        ])
+        && request.resource.data.requestId is string
+        && request.resource.data.employeeId is string
+        && request.resource.data.employeeEmail is string
+        && request.resource.data.employeeName is string
+        && request.resource.data.type in ['Annual leave', 'Sick leave']
+        && request.resource.data.startDate is string
+        && request.resource.data.endDate is string
+        && request.resource.data.reason is string
+        && request.resource.data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId))
+        && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.employeeId == request.resource.data.employeeId
+        && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.employeeEmail == request.resource.data.employeeEmail
+        && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.employeeName == request.resource.data.employeeName
+        && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.type == request.resource.data.type
+        && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.startDate == request.resource.data.startDate
+        && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.endDate == request.resource.data.endDate
+        && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.reason == request.resource.data.reason
         && (
           (
-            resource.data.status == 'pending'
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'status', 'reviewedAt', 'reviewedBy'
-            ])
-            && request.resource.data.status in ['approved', 'rejected']
-            && request.resource.data.reviewedAt == request.time
-            && request.resource.data.reviewedBy == request.auth.token.email
+            request.resource.data.event == 'submitted'
+            && notificationId == request.resource.data.requestId + '_submitted'
+            && isApprovedEmployee()
+            && request.resource.data.employeeId == request.auth.uid
+            && !exists(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId))
+            && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.status == 'pending'
           )
           || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-              'type', 'startDate', 'endDate', 'reason'
-            ])
-            && request.resource.data.type in ['Annual leave', 'Sick leave']
-            && request.resource.data.startDate is string
-            && request.resource.data.startDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
-            && request.resource.data.endDate is string
-            && request.resource.data.endDate.matches('^\\d{4}-\\d{2}-\\d{2}$')
-            && request.resource.data.endDate >= request.resource.data.startDate
-            && request.resource.data.reason is string
-            && request.resource.data.reason.size() >= 3
-            && request.resource.data.reason.size() <= 1000
+            request.resource.data.event in ['approved', 'rejected']
+            && notificationId == request.resource.data.requestId + '_' + request.resource.data.event
+            && isAdmin()
+            && exists(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId))
+            && get(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.status == 'pending'
+            && getAfter(/databases/$(database)/documents/leaveRequests/$(request.resource.data.requestId)).data.status == request.resource.data.event
           )
         );
 
-      allow delete: if isAdmin();
+      allow read, update, delete: if false;
     }
 
     match /attendance/{recordId} {

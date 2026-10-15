@@ -9,7 +9,7 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 - Approved employees can submit leave requests and view their decisions.
 - Employees can view attendance; only the administrator can add or change attendance records.
 - Approved employees can view their own profile details in the My profile section, including official email, phone, GitHub ID, and track records.
-- Administrators can edit employee display names and leave requests, and can edit or delete leave and attendance records. Deleting an employee profile also deletes their associated leave and attendance records, but does not delete their Google sign-in account.
+- Administrators can edit employee display names and attendance records, review or delete leave requests, and delete attendance records. Deleting an employee profile also deletes their associated leave and attendance records, but does not delete their Google sign-in account.
 - The notice board has its own navigation section. It appears below the daily update summary in the employee overview and is omitted from the admin overview. Administrators can publish and manage notices in its dedicated section. Employee profiles include editable display name, GitHub ID, track records, and phone details.
 - Firestore security rules enforce these permissions independently of the UI.
 
@@ -23,6 +23,12 @@ Add these GitHub repository secrets (**Settings → Secrets and variables → Ac
 - `SMTP_HOST`, `SMTP_PORT` (465 or 587), `SMTP_USER`, `SMTP_PASS`, and optional `SMTP_FROM`.
 
 Then deploy the updated rules (`npx firebase-tools deploy --only firestore:rules`). GitHub cron can start a few minutes late.
+
+## Leave request emails
+
+The `.github/workflows/leave-notifications.yml` workflow checks the Firestore notification queue every five minutes and uses the same GitHub Actions SMTP secrets as the daily-update workflow. New requests and administrator decisions are queued atomically with their leave-request writes. Each notification is emailed to the employee's official email (falling back to their sign-in email if no official email is set) and `info@adnsemicon.com`; the queue entry is removed only after SMTP accepts the email. If sending fails, the queued notification remains for a later workflow run. GitHub cron can start a few minutes late.
+
+No additional SMTP secrets are needed. Deploy the updated Firestore rules with `npx firebase-tools deploy --only firestore:rules --project adn-employee-management-system` so clients can enqueue notifications securely.
 
 ## Local development
 
