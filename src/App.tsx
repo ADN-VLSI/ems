@@ -22,6 +22,7 @@ import {
 import {
   ArrowDownRight,
   ArrowRight,
+  BookOpen,
   CalendarCheck2,
   CalendarDays,
   Check,
@@ -39,6 +40,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  TrendingUp,
   Trash2,
   Users,
   UserRound,
@@ -59,6 +61,7 @@ import {
 } from "./data";
 import { ConcernsPage, needsAdminReply } from "./Concerns";
 import { DailyUpdatesPage, DailyUpdateSummary } from "./DailyUpdates";
+import { PolicyPage } from "./Policies";
 import {
   PaginationControls,
   SortControls,
@@ -94,6 +97,8 @@ const sectionTitles: Record<PortalSection, string> = {
   notices: "Notice board",
   leaves: "Leave management",
   attendance: "Attendance",
+  "leave-policy": "Leave policy",
+  "career-policy": "Career progression policy",
   concerns: "Concerns",
   daily: "Daily update",
   profile: "My profile",
@@ -1146,6 +1151,25 @@ function App() {
               My profile
             </NavButton>
           )}
+          {!isAdmin && <span className="nav-label">POLICIES</span>}
+          {!isAdmin && (
+            <>
+              <NavButton
+                icon={<BookOpen size={18} />}
+                active={activeSection === "leave-policy"}
+                onClick={() => { setSection("leave-policy"); setMobileNavOpen(false); }}
+              >
+                Leave policy
+              </NavButton>
+              <NavButton
+                icon={<TrendingUp size={18} />}
+                active={activeSection === "career-policy"}
+                onClick={() => { setSection("career-policy"); setMobileNavOpen(false); }}
+              >
+                Career progression
+              </NavButton>
+            </>
+          )}
           {isAdmin && (
             <NavButton
               icon={<Users size={18} />}
@@ -1221,6 +1245,10 @@ function App() {
                           ? isAdmin
                             ? "Publish updates for the whole team."
                             : "Read announcements from the ADN administrator."
+                          : activeSection === "leave-policy"
+                            ? "Review the rules and guidance for annual and sick leave."
+                            : activeSection === "career-policy"
+                              ? "Review engineering levels, responsibilities, and progression criteria."
                           : activeSection === "profile"
                             ? "Review your personal employee details."
                             : "Manage access and keep your employee list up to date."}
@@ -1282,6 +1310,12 @@ function App() {
               onSaveNotice={saveBoardNotice}
               onDeleteNotice={deleteBoardNotice}
             />
+          )}
+          {activeSection === "leave-policy" && !isAdmin && (
+            <PolicyPage policyId="leave-policy" />
+          )}
+          {activeSection === "career-policy" && !isAdmin && (
+            <PolicyPage policyId="career-policy" />
           )}
           {activeSection === "profile" && !isAdmin && profile && (
             <EmployeeDetailsPanel profile={profile} />

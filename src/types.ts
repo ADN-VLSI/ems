@@ -121,6 +121,8 @@ export type PortalSection =
   | "daily"
   | "leaves"
   | "attendance"
+  | "leave-policy"
+  | "career-policy"
   | "concerns"
   | "profile"
   | "team";
