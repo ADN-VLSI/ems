@@ -2523,7 +2523,31 @@ tbody tr:last-child td {
 }
 
 .team-table {
-  min-width: 1000px;
+  min-width: 1150px;
+}
+
+.reporting-manager-editor {
+  display: flex;
+  min-width: 230px;
+  align-items: center;
+  gap: 6px;
+}
+
+.reporting-manager-editor select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 7px;
+  border: 1px solid #e2e7ed;
+  border-radius: 6px;
+  color: #465367;
+  font: inherit;
+  font-size: 12px;
+}
+
+.reporting-manager-editor .button {
+  min-height: 32px;
+  padding: 0 9px;
 }
 
 .employee-attendance-panel > .panel-heading {

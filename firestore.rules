@@ -18,6 +18,19 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved';
     }
 
+    function validReportingManager(managerId, employeeId) {
+      return managerId is string
+        && managerId.size() <= 128
+        && (
+          managerId == ''
+          || (
+            managerId != employeeId
+            && exists(/databases/$(database)/documents/users/$(managerId))
+            && get(/databases/$(database)/documents/users/$(managerId)).data.status == 'approved'
+          )
+        );
+    }
+
     match /users/{userId} {
       allow get: if isAdmin() || (signedIn() && request.auth.uid == userId);
       allow list: if isAdmin();
@@ -65,6 +78,22 @@ service cloud.firestore {
             )
             || (
               request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'reportingManagerId', 'updatedAt'
+              ])
+              && validReportingManager(request.resource.data.reportingManagerId, userId)
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasAll([
+                'reportingManagerId', 'leaveBalances', 'updatedAt'
+              ])
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'reportingManagerId', 'leaveBalances', 'updatedAt'
+              ])
+              && validReportingManager(request.resource.data.reportingManagerId, userId)
+              && request.resource.data.leaveBalances is map
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                 'displayName', 'updatedAt'
               ])
               && request.resource.data.displayName is string
@@ -86,7 +115,7 @@ service cloud.firestore {
             )
             || (
               request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                'displayName', 'nickname', 'officialEmail', 'reportingManagerId', 'githubId', 'trackRecords', 'phone', 'updatedAt'
+                'displayName', 'nickname', 'officialEmail', 'githubId', 'trackRecords', 'phone', 'updatedAt'
               ])
               && request.resource.data.displayName is string
               && request.resource.data.displayName.size() > 0
@@ -98,16 +127,6 @@ service cloud.firestore {
               && (
                 request.resource.data.officialEmail == ''
                 || request.resource.data.officialEmail.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')
-              )
-              && request.resource.data.reportingManagerId is string
-              && request.resource.data.reportingManagerId.size() <= 128
-              && (
-                request.resource.data.reportingManagerId == ''
-                || (
-                  request.resource.data.reportingManagerId != userId
-                  && exists(/databases/$(database)/documents/users/$(request.resource.data.reportingManagerId))
-                  && get(/databases/$(database)/documents/users/$(request.resource.data.reportingManagerId)).data.status == 'approved'
-                )
               )
               && request.resource.data.githubId is string
               && request.resource.data.githubId.size() <= 39

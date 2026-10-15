@@ -89,7 +89,6 @@ type EmployeeProfileDetails = {
   displayName: string;
   nickname: string;
   officialEmail: string;
-  reportingManagerId: string;
   githubId: string;
   trackRecords: TrackRecord[];
   phone: string;
@@ -607,6 +606,83 @@ function App() {
     }
   }
 
+  async function updateEmployeeRow(
+    employee: EmployeeProfile,
+    fiscalYearStart: number,
+    managerId: string,
+    annualInput: string,
+    sickInput: string,
+  ) {
+    const reportingManagerId = managerId.trim();
+    const annualText = annualInput.trim();
+    const sickText = sickInput.trim();
+    const hasAnnual = annualText !== "";
+    const hasSick = sickText !== "";
+    if (hasAnnual !== hasSick) {
+      setNotice({ kind: "error", message: "Enter both annual and sick leave balances, or leave both blank." });
+      return;
+    }
+
+    const annualDays = Number(annualText);
+    const sickDays = Number(sickText);
+    if (
+      hasAnnual &&
+      (!Number.isInteger(annualDays) ||
+        !Number.isInteger(sickDays) ||
+        annualDays < 0 ||
+        sickDays < 0)
+    ) {
+      setNotice({ kind: "error", message: "Leave balances must be non-negative whole numbers." });
+      return;
+    }
+    if (
+      reportingManagerId &&
+      (reportingManagerId === employee.uid ||
+        !employees.some(
+          (candidate) => candidate.uid === reportingManagerId && candidate.status === "approved",
+        ))
+    ) {
+      setNotice({ kind: "error", message: "Choose another approved employee as the reporting manager." });
+      return;
+    }
+
+    const currentBalance = employee.leaveBalances?.[String(fiscalYearStart)];
+    const managerChanged = reportingManagerId !== (employee.reportingManagerId ?? "");
+    const balancesChanged =
+      hasAnnual &&
+      (annualDays !== currentBalance?.annualDays || sickDays !== currentBalance?.sickDays);
+    if (!managerChanged && !balancesChanged) {
+      setNotice({ kind: "error", message: "Change a reporting manager or leave balance before saving." });
+      return;
+    }
+
+    try {
+      const updates = {
+        updatedAt: serverTimestamp(),
+        ...(managerChanged ? { reportingManagerId } : {}),
+        ...(balancesChanged
+          ? {
+              leaveBalances: {
+                ...employee.leaveBalances,
+                [String(fiscalYearStart)]: { annualDays, sickDays },
+              },
+            }
+          : {}),
+      };
+      await updateDoc(doc(db, "users", employee.uid), updates);
+      const manager = employees.find((candidate) => candidate.uid === reportingManagerId);
+      const managerName = manager ? getEmployeeDisplayName(manager) : "";
+      setNotice({
+        kind: "success",
+        message: `Saved ${getEmployeeDisplayName(employee)}'s row${
+          balancesChanged ? `, including ${formatFiscalYear(fiscalYearStart)} leave balances` : ""
+        }${managerChanged ? reportingManagerId ? ` and reporting manager ${managerName}` : " and removed the reporting manager" : ""}.`,
+      });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
   async function handleSignOut() {
     try {
       await signOut(auth);
@@ -643,7 +719,6 @@ function App() {
       displayName: details.displayName.trim(),
       nickname: details.nickname.trim(),
       officialEmail: details.officialEmail.trim(),
-      reportingManagerId: details.reportingManagerId.trim(),
       githubId: details.githubId.trim(),
       trackRecords: details.trackRecords.map((record) => ({
         role: record.role.trim(),
@@ -781,29 +856,6 @@ function App() {
     try {
       await deleteDoc(doc(db, "notices", boardNotice.id));
       setNotice({ kind: "success", message: "Notice deleted." });
-    } catch (actionError) {
-      setNotice({ kind: "error", message: friendlyError(actionError) });
-    }
-  }
-
-  async function updateLeaveBalances(
-    employee: EmployeeProfile,
-    fiscalYearStart: number,
-    annualDays: number,
-    sickDays: number,
-  ) {
-    try {
-      await updateDoc(doc(db, "users", employee.uid), {
-        leaveBalances: {
-          ...employee.leaveBalances,
-          [String(fiscalYearStart)]: { annualDays, sickDays },
-        },
-        updatedAt: serverTimestamp(),
-      });
-      setNotice({
-        kind: "success",
-        message: `Leave balances saved for ${getEmployeeDisplayName(employee)} (${formatFiscalYear(fiscalYearStart)}).`,
-      });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
     }
@@ -1326,7 +1378,7 @@ function App() {
               attendance={attendance}
               leaveRequests={leaveRequests}
               onApprove={changeApproval}
-              onSaveLeaveBalances={updateLeaveBalances}
+              onSaveEmployeeRow={updateEmployeeRow}
               onSaveEmployeeDetails={updateEmployeeDetails}
               onDeleteEmployee={deleteEmployee}
               onDeleteMonthlyRecords={deleteMonthlyRecords}
@@ -3124,7 +3176,7 @@ function TeamPage({
   attendance,
   leaveRequests,
   onApprove,
-  onSaveLeaveBalances,
+  onSaveEmployeeRow,
   onSaveEmployeeDetails,
   onDeleteEmployee,
   onDeleteMonthlyRecords,
@@ -3134,11 +3186,12 @@ function TeamPage({
   attendance: AttendanceRecord[];
   leaveRequests: LeaveRequest[];
   onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
-  onSaveLeaveBalances: (
+  onSaveEmployeeRow: (
     employee: EmployeeProfile,
     fiscalYearStart: number,
-    annualDays: number,
-    sickDays: number,
+    managerId: string,
+    annualDays: string,
+    sickDays: string,
   ) => Promise<void>;
   onSaveEmployeeDetails: (
     employee: EmployeeProfile,
@@ -3150,8 +3203,9 @@ function TeamPage({
 }) {
   const [filter, setFilter] = useState<"all" | ApprovalStatus>("all");
   const [employeeSearch, setEmployeeSearch] = useState("");
-  const [employeeSort, setEmployeeSort] = useState<"name" | "registered" | "access">("name");
+  const [employeeSort, setEmployeeSort] = useState<"name" | "access">("name");
   const [employeeSortDirection, setEmployeeSortDirection] = useState<SortDirection>("asc");
+  const [managerFilter, setManagerFilter] = useState("");
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null);
   const [cleanupMonth, setCleanupMonth] = useState(
     `${localToday.getFullYear()}-${String(localToday.getMonth() + 1).padStart(2, "0")}`,
@@ -3169,25 +3223,31 @@ function TeamPage({
     const matchesSearch =
       !term ||
       `${getEmployeeDisplayName(employee)} ${employee.displayName} ${employee.email}`.toLowerCase().includes(term);
-    return matchesFilter && matchesSearch;
+    const matchesManager =
+      !managerFilter ||
+      (managerFilter === "unassigned"
+        ? !employee.reportingManagerId
+        : employee.reportingManagerId === managerFilter);
+    return matchesFilter && matchesSearch && matchesManager;
   });
+  const reportingManagers = Array.from(
+    new Set(employees.map((employee) => employee.reportingManagerId).filter(Boolean)),
+  )
+    .map((managerId) => employees.find((employee) => employee.uid === managerId))
+    .filter((manager): manager is EmployeeProfile => Boolean(manager))
+    .sort((first, second) => getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)));
   const sortedVisibleEmployees = useMemo(
     () =>
       sortItems(
         visibleEmployees,
-        (employee) =>
-          employeeSort === "registered"
-            ? employee.createdAt?.toDate().getTime()
-            : employeeSort === "access"
-              ? employee.status
-              : getEmployeeDisplayName(employee),
+        (employee) => employeeSort === "access" ? employee.status : getEmployeeDisplayName(employee),
         employeeSortDirection,
       ),
     [visibleEmployees, employeeSort, employeeSortDirection],
   );
   const employeePagination = usePagination(
     sortedVisibleEmployees,
-    `${filter}:${employeeSearch}:${employeeSort}:${employeeSortDirection}`,
+    `${filter}:${managerFilter}:${employeeSearch}:${employeeSort}:${employeeSortDirection}`,
   );
   const selectedEmployee = employees.find(
     (employee) => employee.uid === profileEmployeeId,
@@ -3273,11 +3333,26 @@ function TeamPage({
                 <option value="rejected">Declined</option>
               </select>
             </label>
+            <label className="filter-select">
+              <span className="sr-only">Filter employees by reporting manager</span>
+              <select
+                aria-label="Filter employees by reporting manager"
+                value={managerFilter}
+                onChange={(event) => setManagerFilter(event.target.value)}
+              >
+                <option value="">All managers</option>
+                <option value="unassigned">No manager assigned</option>
+                {reportingManagers.map((manager) => (
+                  <option value={manager.uid} key={manager.uid}>
+                    {getEmployeeDisplayName(manager)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <SortControls
               value={employeeSort}
               options={[
                 { value: "name", label: "Employee" },
-                { value: "registered", label: "Registration date" },
                 { value: "access", label: "Access status" },
               ]}
               direction={employeeSortDirection}
@@ -3293,48 +3368,20 @@ function TeamPage({
             <div className="table-wrap">
               <table className="team-table">
                 <thead>
-                  <tr><th>EMPLOYEE</th><th>REGISTERED</th><th>ACCESS</th><th>LEAVE BALANCES</th><th className="align-right">ACTIONS</th></tr>
+                  <tr><th>EMPLOYEE</th><th>REPORTING TO</th><th>ACCESS</th><th>LEAVE BALANCES</th><th className="align-right">ACTIONS</th></tr>
                 </thead>
                 <tbody>
                   {employeePagination.items.map((employee) => (
-                    <tr key={employee.uid}>
-                      <td>
-                        <div className="person-cell">
-                          <Initials name={getEmployeeDisplayName(employee)} />
-                          <span><strong>{getEmployeeDisplayName(employee)}</strong><small>{employee.email}</small></span>
-                        </div>
-                      </td>
-                      <td>{formatTimestamp(employee.createdAt)}</td>
-                      <td><StatusPill status={employee.status} /></td>
-                      <td>
-                        <LeaveBalanceEditor
-                          key={`${employee.uid}-${fiscalYearStart}`}
-                          employee={employee}
-                          fiscalYearStart={fiscalYearStart}
-                          onSave={onSaveLeaveBalances}
-                        />
-                      </td>
-                      <td className="align-right">
-                        <div className="decision-actions">
-                          {employee.status === "pending" ? (
-                            <>
-                              <Button variant="secondary" onClick={() => onApprove(employee, "rejected")}>Decline</Button>
-                              <Button onClick={() => onApprove(employee, "approved")}><Check size={15} /> Approve</Button>
-                            </>
-                          ) : employee.status === "rejected" ? (
-                            <Button variant="secondary" onClick={() => onApprove(employee, "approved")}>Approve access</Button>
-                          ) : (
-                            <span className="muted-cell">Access granted</span>
-                          )}
-                          <Button variant="secondary" onClick={() => setProfileEmployeeId(employee.uid)}>
-                            <Users size={15} /> View profile
-                          </Button>
-                          <Button variant="secondary" onClick={() => onDeleteEmployee(employee)}>
-                            <Trash2 size={15} /> Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                    <EmployeeAccountRow
+                      key={`${employee.uid}-${fiscalYearStart}`}
+                      employee={employee}
+                      employees={employees}
+                      fiscalYearStart={fiscalYearStart}
+                      onSave={onSaveEmployeeRow}
+                      onApprove={onApprove}
+                      onOpenProfile={() => setProfileEmployeeId(employee.uid)}
+                      onDelete={() => onDeleteEmployee(employee)}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -3354,7 +3401,6 @@ function TeamPage({
           <EmployeeProfileDetailsPanel
             key={selectedEmployee.uid}
             employee={selectedEmployee}
-            employees={employees}
             onSave={onSaveEmployeeDetails}
             onClose={() => setProfileEmployeeId(null)}
           />
@@ -3543,14 +3589,149 @@ function EmployeeAttendanceHeatmap({
   );
 }
 
-function EmployeeProfileDetailsPanel({
+function EmployeeAccountRow({
   employee,
   employees,
+  fiscalYearStart,
+  onSave,
+  onApprove,
+  onOpenProfile,
+  onDelete,
+}: {
+  employee: EmployeeProfile;
+  employees: EmployeeProfile[];
+  fiscalYearStart: number;
+  onSave: (
+    employee: EmployeeProfile,
+    fiscalYearStart: number,
+    managerId: string,
+    annualDays: string,
+    sickDays: string,
+  ) => Promise<void>;
+  onApprove: (employee: EmployeeProfile, status: Exclude<ApprovalStatus, "pending">) => void;
+  onOpenProfile: () => void;
+  onDelete: () => void;
+}) {
+  const currentBalance = employee.leaveBalances?.[String(fiscalYearStart)];
+  const [managerId, setManagerId] = useState(employee.reportingManagerId ?? "");
+  const [annualDays, setAnnualDays] = useState(currentBalance?.annualDays.toString() ?? "");
+  const [sickDays, setSickDays] = useState(currentBalance?.sickDays.toString() ?? "");
+  const [saving, setSaving] = useState(false);
+  const currentManager = employees.find((candidate) => candidate.uid === managerId);
+  const approvedManagers = employees
+    .filter((candidate) => candidate.status === "approved" && candidate.uid !== employee.uid)
+    .sort((first, second) =>
+      getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)),
+    );
+
+  useEffect(() => {
+    setManagerId(employee.reportingManagerId ?? "");
+    setAnnualDays(currentBalance?.annualDays.toString() ?? "");
+    setSickDays(currentBalance?.sickDays.toString() ?? "");
+  }, [employee.reportingManagerId, employee.leaveBalances, fiscalYearStart]);
+
+  async function saveRow() {
+    setSaving(true);
+    try {
+      await onSave(employee, fiscalYearStart, managerId, annualDays, sickDays);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <tr>
+      <td>
+        <div className="person-cell">
+          <Initials name={getEmployeeDisplayName(employee)} />
+          <span><strong>{getEmployeeDisplayName(employee)}</strong><small>{employee.email}</small></span>
+        </div>
+      </td>
+      <td>
+        <div className="reporting-manager-editor">
+          <select
+            aria-label={`Reporting manager for ${getEmployeeDisplayName(employee)}`}
+            value={managerId}
+            disabled={saving}
+            onChange={(event) => setManagerId(event.target.value)}
+          >
+            <option value="">No manager assigned</option>
+            {currentManager &&
+              currentManager.uid !== employee.uid &&
+              currentManager.status !== "approved" && (
+                <option value={currentManager.uid} disabled>
+                  {getEmployeeDisplayName(currentManager)} (not approved)
+                </option>
+              )}
+            {approvedManagers.map((manager) => (
+              <option key={manager.uid} value={manager.uid}>
+                {getEmployeeDisplayName(manager)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </td>
+      <td><StatusPill status={employee.status} /></td>
+      <td>
+        <div className="leave-balance-editor">
+          <label>
+            <span>Annual</span>
+            <input
+              aria-label={`Annual leave days for ${getEmployeeDisplayName(employee)} in ${formatFiscalYear(fiscalYearStart)}`}
+              type="number"
+              min="0"
+              step="1"
+              value={annualDays}
+              disabled={saving}
+              onChange={(event) => setAnnualDays(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Sick</span>
+            <input
+              aria-label={`Sick leave days for ${getEmployeeDisplayName(employee)} in ${formatFiscalYear(fiscalYearStart)}`}
+              type="number"
+              min="0"
+              step="1"
+              value={sickDays}
+              disabled={saving}
+              onChange={(event) => setSickDays(event.target.value)}
+            />
+          </label>
+        </div>
+      </td>
+      <td className="align-right">
+        <div className="decision-actions">
+          <Button type="button" variant="secondary" disabled={saving} onClick={saveRow}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+          {employee.status === "pending" && (
+            <>
+              <Button variant="secondary" onClick={() => onApprove(employee, "rejected")}>Decline</Button>
+              <Button onClick={() => onApprove(employee, "approved")}><Check size={15} /> Approve</Button>
+            </>
+          )}
+          {employee.status === "rejected" && (
+            <Button variant="secondary" onClick={() => onApprove(employee, "approved")}>Approve access</Button>
+          )}
+          <Button variant="secondary" onClick={onOpenProfile}>
+            <Users size={15} /> View profile
+          </Button>
+          <Button variant="secondary" onClick={onDelete}>
+            <Trash2 size={15} /> Delete
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function EmployeeProfileDetailsPanel({
+  employee,
   onSave,
   onClose,
 }: {
   employee: EmployeeProfile;
-  employees: EmployeeProfile[];
   onSave: (
     employee: EmployeeProfile,
     details: EmployeeProfileDetails,
@@ -3560,7 +3741,6 @@ function EmployeeProfileDetailsPanel({
   const [displayName, setDisplayName] = useState(employee.displayName);
   const [nickname, setNickname] = useState(employee.nickname ?? "");
   const [officialEmail, setOfficialEmail] = useState(employee.officialEmail ?? "");
-  const [reportingManagerId, setReportingManagerId] = useState(employee.reportingManagerId ?? "");
   const [githubId, setGithubId] = useState(employee.githubId ?? "");
   const [trackRecords, setTrackRecords] = useState<TrackRecord[]>(
     employee.trackRecords ?? [],
@@ -3572,15 +3752,7 @@ function EmployeeProfileDetailsPanel({
     event.preventDefault();
     setSaving(true);
     try {
-      await onSave(employee, {
-        displayName,
-        nickname,
-        officialEmail,
-        reportingManagerId,
-        githubId,
-        trackRecords,
-        phone,
-      });
+      await onSave(employee, { displayName, nickname, officialEmail, githubId, trackRecords, phone });
     } finally {
       setSaving(false);
     }
@@ -3627,25 +3799,6 @@ function EmployeeProfileDetailsPanel({
             onChange={(event) => setOfficialEmail(event.target.value)}
             placeholder="name@company.com"
           />
-        </label>
-        <label className="field">
-          Reporting manager
-          <select
-            value={reportingManagerId}
-            onChange={(event) => setReportingManagerId(event.target.value)}
-          >
-            <option value="">No manager assigned</option>
-            {employees
-              .filter((candidate) => candidate.status === "approved" && candidate.uid !== employee.uid)
-              .sort((first, second) =>
-                getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)),
-              )
-              .map((manager) => (
-                <option key={manager.uid} value={manager.uid}>
-                  {getEmployeeDisplayName(manager)} ({manager.email})
-                </option>
-              ))}
-          </select>
         </label>
         <label className="field">
           GitHub ID
@@ -3767,91 +3920,6 @@ function EmployeeProfileDetailsPanel({
         </div>
       </form>
     </section>
-  );
-}
-
-function LeaveBalanceEditor({
-  employee,
-  fiscalYearStart,
-  onSave,
-}: {
-  employee: EmployeeProfile;
-  fiscalYearStart: number;
-  onSave: (
-    employee: EmployeeProfile,
-    fiscalYearStart: number,
-    annualDays: number,
-    sickDays: number,
-  ) => Promise<void>;
-}) {
-  const currentBalance = employee.leaveBalances?.[String(fiscalYearStart)];
-  const [annualDays, setAnnualDays] = useState(
-    currentBalance?.annualDays.toString() ?? "",
-  );
-  const [sickDays, setSickDays] = useState(currentBalance?.sickDays.toString() ?? "");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const balance = employee.leaveBalances?.[String(fiscalYearStart)];
-    setAnnualDays(balance?.annualDays.toString() ?? "");
-    setSickDays(balance?.sickDays.toString() ?? "");
-  }, [employee.leaveBalances, fiscalYearStart]);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const annual = Number(annualDays);
-    const sick = Number(sickDays);
-    if (
-      !annualDays ||
-      !sickDays ||
-      !Number.isInteger(annual) ||
-      !Number.isInteger(sick) ||
-      annual < 0 ||
-      sick < 0
-    ) {
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await onSave(employee, fiscalYearStart, annual, sick);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form className="leave-balance-editor" onSubmit={handleSubmit}>
-      <label>
-        <span>Annual</span>
-        <input
-          aria-label={`Annual leave days for ${getEmployeeDisplayName(employee)} in ${formatFiscalYear(fiscalYearStart)}`}
-          type="number"
-          min="0"
-          step="1"
-          required
-          value={annualDays}
-          disabled={saving}
-          onChange={(event) => setAnnualDays(event.target.value)}
-        />
-      </label>
-      <label>
-        <span>Sick</span>
-        <input
-          aria-label={`Sick leave days for ${getEmployeeDisplayName(employee)} in ${formatFiscalYear(fiscalYearStart)}`}
-          type="number"
-          min="0"
-          step="1"
-          required
-          value={sickDays}
-          disabled={saving}
-          onChange={(event) => setSickDays(event.target.value)}
-        />
-      </label>
-      <Button type="submit" variant="secondary" disabled={saving}>
-        {saving ? "Saving…" : "Save"}
-      </Button>
-    </form>
   );
 }
 
