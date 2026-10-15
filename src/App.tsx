@@ -1852,6 +1852,7 @@ function Overview({
                     <div className="compact-main">
                       <strong>{request.employeeName}</strong>
                       <span>{request.type} · {formatDate(request.startDate)} – {formatDate(request.endDate)}</span>
+                      <span className="compact-reason">{request.reason || "—"}</span>
                     </div>
                     <div className="row-actions">
                       <button
@@ -2664,6 +2665,7 @@ function LeaveTable({
                   <th>LEAVE TYPE</th>
                   <th>DATES</th>
                   <th>DAYS</th>
+                  <th>REASON</th>
                   <th>SUBMITTED</th>
                   <th>STATUS</th>
                   {onDelete && <th className="align-right">ACTIONS</th>}
@@ -2683,6 +2685,7 @@ function LeaveTable({
                     <td><span className={`leave-type leave-type-${leaveTypeTone(request.type)}`}>{request.type}</span></td>
                     <td>{formatDate(request.startDate)}<small className="cell-subline">to {formatDate(request.endDate)}</small></td>
                     <td>{dayCount(request.startDate, request.endDate)}</td>
+                    <td className="reason-cell" title={request.reason}>{request.reason || "—"}</td>
                     <td>{formatTimestamp(request.createdAt)}</td>
                     <td><StatusPill status={request.status} /></td>
                     {onDelete && (
