@@ -86,11 +86,13 @@ service cloud.firestore {
             )
             || (
               request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                'displayName', 'officialEmail', 'githubId', 'trackRecords', 'phone', 'updatedAt'
+                'displayName', 'nickname', 'officialEmail', 'githubId', 'trackRecords', 'phone', 'updatedAt'
               ])
               && request.resource.data.displayName is string
               && request.resource.data.displayName.size() > 0
               && request.resource.data.displayName.size() <= 120
+              && request.resource.data.nickname is string
+              && request.resource.data.nickname.size() <= 120
               && request.resource.data.officialEmail is string
               && request.resource.data.officialEmail.size() <= 254
               && (
