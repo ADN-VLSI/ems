@@ -1,0 +1,12 @@
+name: Simple Cron Check
+
+on:
+  schedule:
+    - cron: "15 * * * *"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check cron
+        run: echo "Cron job executed"
