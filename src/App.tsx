@@ -3201,10 +3201,7 @@ function TeamPage({
   onDeleteMonthlyRecords: (month: string) => Promise<MonthCleanupCounts>;
   onNotice: (kind: "success" | "error", message: string) => void;
 }) {
-  const [filter, setFilter] = useState<"all" | ApprovalStatus>("all");
   const [employeeSearch, setEmployeeSearch] = useState("");
-  const [employeeSort, setEmployeeSort] = useState<"name" | "access">("name");
-  const [employeeSortDirection, setEmployeeSortDirection] = useState<SortDirection>("asc");
   const [managerFilter, setManagerFilter] = useState("");
   const [profileEmployeeId, setProfileEmployeeId] = useState<string | null>(null);
   const [cleanupMonth, setCleanupMonth] = useState(
@@ -3218,7 +3215,6 @@ function TeamPage({
     [currentFiscalYear, employees],
   );
   const visibleEmployees = employees.filter((employee) => {
-    const matchesFilter = filter === "all" || employee.status === filter;
     const term = employeeSearch.trim().toLowerCase();
     const matchesSearch =
       !term ||
@@ -3228,7 +3224,7 @@ function TeamPage({
       (managerFilter === "unassigned"
         ? !employee.reportingManagerId
         : employee.reportingManagerId === managerFilter);
-    return matchesFilter && matchesSearch && matchesManager;
+    return matchesSearch && matchesManager;
   });
   const reportingManagers = Array.from(
     new Set(employees.map((employee) => employee.reportingManagerId).filter(Boolean)),
@@ -3240,14 +3236,14 @@ function TeamPage({
     () =>
       sortItems(
         visibleEmployees,
-        (employee) => employeeSort === "access" ? employee.status : getEmployeeDisplayName(employee),
-        employeeSortDirection,
+        getEmployeeDisplayName,
+        "asc",
       ),
-    [visibleEmployees, employeeSort, employeeSortDirection],
+    [visibleEmployees],
   );
   const employeePagination = usePagination(
     sortedVisibleEmployees,
-    `${filter}:${managerFilter}:${employeeSearch}:${employeeSort}:${employeeSortDirection}`,
+    `${managerFilter}:${employeeSearch}`,
   );
   const selectedEmployee = employees.find(
     (employee) => employee.uid === profileEmployeeId,
@@ -3325,15 +3321,6 @@ function TeamPage({
               </select>
             </label>
             <label className="filter-select">
-              <span className="sr-only">Filter employees by approval status</span>
-              <select value={filter} onChange={(event) => setFilter(event.target.value as "all" | ApprovalStatus)}>
-                <option value="all">All accounts</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Declined</option>
-              </select>
-            </label>
-            <label className="filter-select">
               <span className="sr-only">Filter employees by reporting manager</span>
               <select
                 aria-label="Filter employees by reporting manager"
@@ -3349,18 +3336,6 @@ function TeamPage({
                 ))}
               </select>
             </label>
-            <SortControls
-              value={employeeSort}
-              options={[
-                { value: "name", label: "Employee" },
-                { value: "access", label: "Access status" },
-              ]}
-              direction={employeeSortDirection}
-              onChange={(value) => setEmployeeSort(value as typeof employeeSort)}
-              onToggleDirection={() =>
-                setEmployeeSortDirection((direction) => direction === "asc" ? "desc" : "asc")
-              }
-            />
           </div>
         </div>
         {visibleEmployees.length ? (
