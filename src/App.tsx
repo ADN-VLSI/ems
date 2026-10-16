@@ -2137,12 +2137,10 @@ function EmployeeDetailsPanel({
   profile,
   employees,
   isOwnProfile = false,
-  onClose,
 }: {
   profile: EmployeeProfile;
   employees: EmployeeProfile[];
   isOwnProfile?: boolean;
-  onClose?: () => void;
 }) {
   const manager = employees.find(
     (employee) => employee.uid === profile.reportingManagerId,
@@ -2171,9 +2169,6 @@ function EmployeeDetailsPanel({
           <h2>{isOwnProfile ? "Your details" : "Employee profile"}</h2>
           <p>{isOwnProfile ? "Your employee profile information." : "Employee profile information."}</p>
         </div>
-        {onClose && (
-          <Button variant="secondary" onClick={onClose}>Close profile</Button>
-        )}
       </div>
       <dl className="employee-detail-grid">
         {details.map(({ label, value }) => (
@@ -2257,23 +2252,19 @@ function getCurrentDesignation(
 
 function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) {
   const [search, setSearch] = useState("");
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const searchTerm = search.trim().toLowerCase();
   const visibleEmployees = employees
     .filter((employee) => {
       const manager = employees.find(
         (candidate) => candidate.uid === employee.reportingManagerId,
       );
-      return `${getEmployeeDisplayName(employee)} ${employee.displayName} ${employee.email} ${employee.officialEmail ?? ""} ${manager ? getEmployeeDisplayName(manager) : ""}`
+      return `${getEmployeeDisplayName(employee)} ${employee.displayName} ${employee.email} ${employee.officialEmail ?? ""} ${employee.githubId ?? ""} ${employee.phone ?? ""} ${manager ? getEmployeeDisplayName(manager) : ""}`
         .toLowerCase()
         .includes(searchTerm);
     })
     .sort((first, second) =>
       getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)),
     );
-  const selectedEmployee = employees.find(
-    (employee) => employee.uid === selectedEmployeeId,
-  );
 
   return (
     <div className="content-stack">
@@ -2281,7 +2272,7 @@ function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) 
         <div className="panel-heading panel-heading-search">
           <div>
             <h2>Employee directory</h2>
-            <p>Browse approved employee profiles and reporting relationships.</p>
+            <p>Browse approved employees and their directory details.</p>
           </div>
           <label className="search-field">
             <Search size={16} />
@@ -2300,10 +2291,11 @@ function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) 
               <thead>
                 <tr>
                   <th>EMPLOYEE</th>
+                  <th>GITHUB ID</th>
+                  <th>PHONE</th>
                   <th>CURRENT DESIGNATION</th>
                   <th>REPORTING TO</th>
                   <th>RECOGNITION</th>
-                  <th className="align-right">PROFILE</th>
                 </tr>
               </thead>
               <tbody>
@@ -2322,17 +2314,11 @@ function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) 
                           </span>
                         </div>
                       </td>
+                      <td>{employee.githubId || "Not provided"}</td>
+                      <td>{employee.phone || "Not provided"}</td>
                       <td>{getCurrentDesignation(employee) || "Not provided"}</td>
                       <td>{manager ? getEmployeeDisplayName(manager) : "Not assigned"}</td>
                       <td><EmployeeBadgeList badges={employee.badges ?? []} /></td>
-                      <td className="align-right">
-                        <Button
-                          variant="secondary"
-                          onClick={() => setSelectedEmployeeId(employee.uid)}
-                        >
-                          View profile
-                        </Button>
-                      </td>
                     </tr>
                   );
                 })}
@@ -2342,18 +2328,13 @@ function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) 
         ) : (
           <EmptyState
             icon={<Users size={20} />}
-            title={employees.length ? "No matching employees" : "No employee profiles"}
-            text={employees.length ? "Try another name, email, or manager." : "Approved employee profiles will appear here."}
+            title={employees.length ? "No matching employees" : "No directory entries"}
+            text={employees.length
+              ? "Try another name, email, GitHub ID, phone number, or manager."
+              : "Approved employees will appear here."}
           />
         )}
       </section>
-      {selectedEmployee && (
-        <EmployeeDetailsPanel
-          profile={selectedEmployee}
-          employees={employees}
-          onClose={() => setSelectedEmployeeId(null)}
-        />
-      )}
     </div>
   );
 }

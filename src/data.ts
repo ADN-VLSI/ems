@@ -89,16 +89,85 @@ export function listenToEmployees(
   next: (employees: EmployeeProfile[]) => void,
   fail: (error: Error) => void,
 ): Unsubscribe {
-  const employees = collection(db, "users");
   const employeeQuery = isAdmin
-    ? query(employees, orderBy("createdAt", "desc"))
-    : query(employees, where("status", "==", "approved"));
+    ? query(collection(db, "users"), orderBy("createdAt", "desc"))
+    : query(collection(db, "employeeDirectory"), orderBy("displayName"));
+  let syncQueue: Promise<void> = Promise.resolve();
 
-  return onSnapshot(
-    employeeQuery,
-    (snapshot) => next(asRecords<EmployeeProfile>(snapshot)),
-    fail,
-  );
+  return onSnapshot(employeeQuery, (snapshot) => {
+    const records = asRecords<EmployeeProfile>(snapshot);
+    if (!isAdmin) {
+      next(records);
+      return;
+    }
+
+    syncQueue = syncQueue
+      .then(() => syncEmployeeDirectory(records))
+      .then(() => next(records))
+      .catch((error: unknown) => {
+        fail(error instanceof Error ? error : new Error(String(error)));
+      });
+  }, fail);
+}
+
+async function syncEmployeeDirectory(employees: EmployeeProfile[]): Promise<void> {
+  const approvedEmployees = employees.filter((employee) => employee.status === "approved");
+  const directory = collection(db, "employeeDirectory");
+  const currentSnapshot = await getDocs(directory);
+  const approvedIds = new Set(approvedEmployees.map((employee) => employee.uid));
+  const operations: Array<{
+    type: "set";
+    uid: string;
+    data: Record<string, unknown>;
+  } | {
+    type: "delete";
+    uid: string;
+  }> = [];
+
+  for (const employee of approvedEmployees) {
+    const currentDesignation = employee.trackRecords?.find((record) => !record.endDate);
+    const data: Record<string, unknown> = {
+      uid: employee.uid,
+      email: employee.email,
+      displayName: employee.displayName,
+      status: "approved",
+      ...(employee.nickname ? { nickname: employee.nickname } : {}),
+      ...(employee.officialEmail ? { officialEmail: employee.officialEmail } : {}),
+      ...(employee.githubId ? { githubId: employee.githubId } : {}),
+      ...(employee.phone ? { phone: employee.phone } : {}),
+      ...(employee.reportingManagerId
+        ? { reportingManagerId: employee.reportingManagerId }
+        : {}),
+      ...(employee.badges?.length ? { badges: employee.badges } : {}),
+      ...(currentDesignation
+        ? {
+            trackRecords: [{
+              role: currentDesignation.role,
+              startDate: currentDesignation.startDate,
+              endDate: "",
+            }],
+          }
+        : {}),
+    };
+    const current = currentSnapshot.docs.find((item) => item.id === employee.uid);
+    if (!current || JSON.stringify(current.data()) !== JSON.stringify(data)) {
+      operations.push({ type: "set", uid: employee.uid, data });
+    }
+  }
+
+  for (const item of currentSnapshot.docs) {
+    if (!approvedIds.has(item.id)) operations.push({ type: "delete", uid: item.id });
+  }
+
+  for (let index = 0; index < operations.length; index += 450) {
+    const batch = writeBatch(db);
+    for (const operation of operations.slice(index, index + 450)) {
+      const reference = doc(directory, operation.uid);
+      if (operation.type === "set") batch.set(reference, operation.data);
+      else batch.delete(reference);
+    }
+    await batch.commit();
+  }
 }
 
 export function listenToLeaveRequests(

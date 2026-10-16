@@ -8,11 +8,11 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 - New employees stay pending until the ADN administrator (`adn.semicon@gmail.com`) approves them.
 - Approved employees can submit leave requests and view their decisions.
 - Employees can view attendance; only the administrator can add or change attendance records.
-- Approved employees can view their own profile details and assigned manager in the My profile section, and browse other approved employee profiles in the Employee directory.
+- Approved employees can view their own profile details and assigned manager in the My profile section, and browse a limited directory of other approved employees, including their GitHub IDs and phone numbers.
 - Administrators can manually award or remove recognition badges from employee profiles. Assigned badges appear on employee dashboards and profiles, and on the admin dashboard and employee directory.
 - Administrators can edit employee display names and attendance records, review or delete leave requests, and delete attendance records. Deleting an employee profile also deletes their associated leave and attendance records, but does not delete their Google sign-in account.
 - The notice board has its own navigation section. It appears below the daily update summary in the employee overview and is omitted from the admin overview. Administrators can publish and manage notices in its dedicated section. Employee profiles include editable display name, GitHub ID, track records, and phone details.
-- Firestore security rules enforce these permissions independently of the UI.
+- Firestore security rules prevent employees from reading other employees' private profiles; directory entries contain only approved directory details.
 
 ## Daily updates
 
@@ -58,7 +58,9 @@ The Firebase project is `adn-employee-management-system`. It is configured for t
 
 - Google sign-in is enabled.
 - `adn-vlsi.github.io` and `localhost` are authorized sign-in domains.
-- The Firestore security rules are published. The two composite indexes are created and may take a few minutes to finish building.
+- Firestore security rules are maintained in `firestore.rules`. The two composite indexes are created and may take a few minutes to finish building.
+
+After deploying directory access rule changes, sign in to the portal as the administrator once to populate or refresh the `employeeDirectory` collection from approved employee profiles.
 
 To publish later changes to Firestore rules or indexes, use an authenticated terminal with Firebase CLI:
 
@@ -84,6 +86,7 @@ The deployed site will be available at `https://adn-vlsi.github.io/ems/`.
 ## Data model
 
 - `users/{uid}`: verified email, display name, optional reporting manager ID, GitHub ID, track records, phone, admin-controlled approval status, and assigned recognition badges.
+- `employeeDirectory/{uid}`: administrator-maintained projection of approved employee name, email, GitHub ID, phone, current designation, reporting manager, and recognition badges. Employees can read this directory but not other `users/{uid}` profile documents.
 - `leaveRequests/{requestId}`: employee-owned submissions and admin-controlled decisions.
 - `attendance/{uid_YYYY-MM-DD}`: daily status entered by the administrator.
 - `notices/{noticeId}`: announcements published and managed by the administrator.
