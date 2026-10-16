@@ -25,14 +25,20 @@ import {
   ArrowDownRight,
   ArrowRight,
   Award,
+  BadgeCheck,
+  Brain,
   BookOpen,
   CalendarCheck2,
   CalendarDays,
   Check,
   CheckCircle2,
   Clock3,
+  Coffee,
   FilePlus2,
   Fingerprint,
+  GraduationCap,
+  Handshake,
+  Lightbulb,
   ListChecks,
   LayoutDashboard,
   LogOut,
@@ -41,14 +47,20 @@ import {
   MessageSquareText,
   Pencil,
   Plus,
+  Rocket,
   Search,
   ShieldCheck,
+  Star,
+  Sunrise,
+  Timer,
+  Trophy,
   TrendingUp,
   Trash2,
   Users,
   UserRound,
   X,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { auth, db, googleProvider, ADMIN_EMAIL } from "./firebase";
 import {
@@ -109,6 +121,25 @@ const sectionTitles: Record<PortalSection, string> = {
   daily: "Daily update",
   profile: "My profile",
   team: "Employee directory",
+};
+
+const employeeBadgeIcons: Record<EmployeeBadgeId, LucideIcon> = {
+  "team-player": Users,
+  "problem-solver": Brain,
+  innovation: Lightbulb,
+  mentorship: GraduationCap,
+  "customer-impact": Handshake,
+  excellence: Trophy,
+  "attendance-champion": CalendarCheck2,
+  "on-time-hero": Clock3,
+  "perfect-attendance": BadgeCheck,
+  "early-bird": Sunrise,
+  "streak-master": Award,
+  "break-return-pro": Coffee,
+  dependability: ShieldCheck,
+  "deadline-crusher": Timer,
+  "consistency-star": Star,
+  "extra-mile": Rocket,
 };
 
 const localToday = new Date();
@@ -1729,6 +1760,12 @@ function Overview({
             )}
           </div>
         </div>
+        {!isAdmin && profile?.badges?.length ? (
+          <div className="overview-banner-badges" aria-label="Your recognition badges">
+            <span>Your badges</span>
+            <EmployeeBadgeList badges={profile.badges} />
+          </div>
+        ) : null}
         <div className="welcome-art" aria-hidden="true">
           <svg viewBox="0 0 1200 280" preserveAspectRatio="xMaxYMid slice" focusable="false">
             <defs>
@@ -1843,15 +1880,13 @@ function Overview({
         <OverviewClock />
       </section>
 
-      <section className="panel dashboard-recognition">
-        <PanelHeading
-          title="Recognition badges"
-          subtitle={isAdmin
-            ? "Celebrating the contributions recognized across your team."
-            : "Badges awarded to recognize your contributions."}
-        />
-        {isAdmin ? (
-          employees.some((employee) => employee.badges?.length) ? (
+      {isAdmin && (
+        <section className="panel dashboard-recognition">
+          <PanelHeading
+            title="Recognition badges"
+            subtitle="Celebrating the contributions recognized across your team."
+          />
+          {employees.some((employee) => employee.badges?.length) ? (
             <ul className="dashboard-recognition-list">
               {employees
                 .filter((employee) => employee.badges?.length)
@@ -1874,14 +1909,9 @@ function Overview({
               title="No badges awarded yet"
               text="Award a recognition badge from an employee profile in the team directory."
             />
-          )
-        ) : (
-          <EmployeeBadgeList
-            badges={profile?.badges ?? []}
-            emptyText="Your awarded badges will appear here."
-          />
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {!isAdmin && profile?.status === "approved" && (
         <>
@@ -2191,12 +2221,30 @@ function EmployeeBadgeList({
 
   return (
     <ul className="employee-badge-list">
-      {knownBadges.map((badge) => (
-        <li className={`employee-badge employee-badge-${badge.id}`} key={badge.id}>
-          <Award size={15} aria-hidden="true" />
-          <span>{badge.label}</span>
-        </li>
-      ))}
+      {knownBadges.map((badge) => {
+        const BadgeIcon = employeeBadgeIcons[badge.id];
+        return (
+          <li key={badge.id}>
+            <span
+              className={`employee-badge employee-badge-${badge.id}`}
+              role="img"
+              tabIndex={0}
+              aria-label={`${badge.label}: ${badge.description}`}
+              aria-describedby={`employee-badge-tooltip-${badge.id}`}
+            >
+              <BadgeIcon size={19} strokeWidth={2.1} aria-hidden="true" />
+              <span
+                className="employee-badge-tooltip"
+                id={`employee-badge-tooltip-${badge.id}`}
+                role="tooltip"
+              >
+                <strong>{badge.label}</strong>
+                <span>{badge.description}</span>
+              </span>
+            </span>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -4228,7 +4276,7 @@ function EmployeeProfileDetailsPanel({
           <ul className="employee-badge-admin-list">
             {EMPLOYEE_BADGES.filter((badge) => awardedBadgeIds.includes(badge.id)).map((badge) => (
               <li key={badge.id}>
-                <span className={`employee-badge employee-badge-${badge.id}`}>
+                <span className={`employee-badge employee-badge-label employee-badge-${badge.id}`}>
                   <Award size={15} aria-hidden="true" />
                   {badge.label}
                 </span>
