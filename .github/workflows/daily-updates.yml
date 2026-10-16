@@ -2,7 +2,6 @@ name: Send daily updates
 
 on:
   schedule:
-    # 17:30 UTC = 11:30 PM Asia/Dhaka
     - cron: "30 17 * * *"
   workflow_dispatch:
 
