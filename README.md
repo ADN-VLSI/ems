@@ -9,6 +9,7 @@ A responsive employee portal built with React, TypeScript, Vite, Firebase Authen
 - Approved employees can submit leave requests and view their decisions.
 - Employees can view attendance; only the administrator can add or change attendance records.
 - Approved employees can view their own profile details and assigned manager in the My profile section, and browse other approved employee profiles in the Employee directory.
+- Administrators can manually award or remove recognition badges from employee profiles. Assigned badges appear on employee dashboards and profiles, and on the admin dashboard and employee directory.
 - Administrators can edit employee display names and attendance records, review or delete leave requests, and delete attendance records. Deleting an employee profile also deletes their associated leave and attendance records, but does not delete their Google sign-in account.
 - The notice board has its own navigation section. It appears below the daily update summary in the employee overview and is omitted from the admin overview. Administrators can publish and manage notices in its dedicated section. Employee profiles include editable display name, GitHub ID, track records, and phone details.
 - Firestore security rules enforce these permissions independently of the UI.
@@ -82,7 +83,7 @@ The deployed site will be available at `https://adn-vlsi.github.io/ems/`.
 
 ## Data model
 
-- `users/{uid}`: verified email, display name, optional reporting manager ID, GitHub ID, track records, phone, and admin-controlled approval status.
+- `users/{uid}`: verified email, display name, optional reporting manager ID, GitHub ID, track records, phone, admin-controlled approval status, and assigned recognition badges.
 - `leaveRequests/{requestId}`: employee-owned submissions and admin-controlled decisions.
 - `attendance/{uid_YYYY-MM-DD}`: daily status entered by the administrator.
 - `notices/{noticeId}`: announcements published and managed by the administrator.

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
   addDoc,
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -22,6 +24,7 @@ import {
 import {
   ArrowDownRight,
   ArrowRight,
+  Award,
   BookOpen,
   CalendarCheck2,
   CalendarDays,
@@ -69,11 +72,13 @@ import {
   usePagination,
   type SortDirection,
 } from "./Pagination";
+import { EMPLOYEE_BADGES, getEmployeeDisplayName } from "./types";
 import type {
   ApprovalStatus,
   AttendanceRecord,
   AttendanceStatus,
   Concern,
+  EmployeeBadgeId,
   EmployeeProfile,
   LeaveRequest,
   LeaveStatus,
@@ -82,7 +87,6 @@ import type {
   PortalSection,
   TrackRecord,
 } from "./types";
-import { getEmployeeDisplayName } from "./types";
 
 type Notice = { kind: "success" | "error"; message: string };
 type EmployeeProfileDetails = {
@@ -703,6 +707,38 @@ function App() {
       setNotice({
         kind: "success",
         message: `${getEmployeeDisplayName(employee)} ${status === "approved" ? "approved" : "declined"}.`,
+      });
+    } catch (actionError) {
+      setNotice({ kind: "error", message: friendlyError(actionError) });
+    }
+  }
+
+  async function updateEmployeeBadge(
+    employee: EmployeeProfile,
+    badgeId: EmployeeBadgeId,
+    action: "award" | "remove",
+  ) {
+    if (!isAdmin || !user?.email) {
+      setNotice({ kind: "error", message: "Only the administrator can manage employee badges." });
+      return;
+    }
+
+    const badge = EMPLOYEE_BADGES.find((item) => item.id === badgeId);
+    if (!badge) {
+      setNotice({ kind: "error", message: "Choose a valid employee badge." });
+      return;
+    }
+
+    try {
+      await updateDoc(doc(db, "users", employee.uid), {
+        badges: action === "award" ? arrayUnion(badgeId) : arrayRemove(badgeId),
+        updatedAt: serverTimestamp(),
+      });
+      setNotice({
+        kind: "success",
+        message: action === "award"
+          ? `Awarded ${badge.label} to ${getEmployeeDisplayName(employee)}.`
+          : `Removed ${badge.label} from ${getEmployeeDisplayName(employee)}.`,
       });
     } catch (actionError) {
       setNotice({ kind: "error", message: friendlyError(actionError) });
@@ -1391,6 +1427,12 @@ function App() {
               onApprove={changeApproval}
               onSaveEmployeeRow={updateEmployeeRow}
               onSaveEmployeeDetails={updateEmployeeDetails}
+              onAwardBadge={(employee, badgeId) =>
+                updateEmployeeBadge(employee, badgeId, "award")
+              }
+              onRemoveBadge={(employee, badgeId) =>
+                updateEmployeeBadge(employee, badgeId, "remove")
+              }
               onDeleteEmployee={deleteEmployee}
               onDeleteMonthlyRecords={deleteMonthlyRecords}
               onNotice={(kind, message) => setNotice({ kind, message })}
@@ -1801,6 +1843,46 @@ function Overview({
         <OverviewClock />
       </section>
 
+      <section className="panel dashboard-recognition">
+        <PanelHeading
+          title="Recognition badges"
+          subtitle={isAdmin
+            ? "Celebrating the contributions recognized across your team."
+            : "Badges awarded to recognize your contributions."}
+        />
+        {isAdmin ? (
+          employees.some((employee) => employee.badges?.length) ? (
+            <ul className="dashboard-recognition-list">
+              {employees
+                .filter((employee) => employee.badges?.length)
+                .sort((first, second) =>
+                  getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)),
+                )
+                .map((employee) => (
+                  <li key={employee.uid}>
+                    <Initials name={getEmployeeDisplayName(employee)} />
+                    <div>
+                      <strong>{getEmployeeDisplayName(employee)}</strong>
+                      <EmployeeBadgeList badges={employee.badges ?? []} />
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <EmptyState
+              icon={<Award size={20} />}
+              title="No badges awarded yet"
+              text="Award a recognition badge from an employee profile in the team directory."
+            />
+          )
+        ) : (
+          <EmployeeBadgeList
+            badges={profile?.badges ?? []}
+            emptyText="Your awarded badges will appear here."
+          />
+        )}
+      </section>
+
       {!isAdmin && profile?.status === "approved" && (
         <>
           <DailyUpdateSummary userId={user.uid} onOpen={onOpenDaily} />
@@ -2071,6 +2153,10 @@ function EmployeeDetailsPanel({
           </div>
         ))}
       </dl>
+      <div className="employee-badges">
+        <h3>Recognition badges</h3>
+        <EmployeeBadgeList badges={profile.badges ?? []} emptyText="No badges have been awarded yet." />
+      </div>
       <div className="employee-track-records">
         <h3>Track records</h3>
         {sortedTrackRecords.length ? (
@@ -2090,6 +2176,28 @@ function EmployeeDetailsPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function EmployeeBadgeList({
+  badges,
+  emptyText = "No badges yet",
+}: {
+  badges: EmployeeBadgeId[];
+  emptyText?: string;
+}) {
+  const knownBadges = EMPLOYEE_BADGES.filter((badge) => badges.includes(badge.id));
+  if (!knownBadges.length) return <p className="employee-badges-empty">{emptyText}</p>;
+
+  return (
+    <ul className="employee-badge-list">
+      {knownBadges.map((badge) => (
+        <li className={`employee-badge employee-badge-${badge.id}`} key={badge.id}>
+          <Award size={15} aria-hidden="true" />
+          <span>{badge.label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -2146,6 +2254,7 @@ function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) 
                   <th>EMPLOYEE</th>
                   <th>CURRENT DESIGNATION</th>
                   <th>REPORTING TO</th>
+                  <th>RECOGNITION</th>
                   <th className="align-right">PROFILE</th>
                 </tr>
               </thead>
@@ -2167,6 +2276,7 @@ function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) 
                       </td>
                       <td>{getCurrentDesignation(employee) || "Not provided"}</td>
                       <td>{manager ? getEmployeeDisplayName(manager) : "Not assigned"}</td>
+                      <td><EmployeeBadgeList badges={employee.badges ?? []} /></td>
                       <td className="align-right">
                         <Button
                           variant="secondary"
@@ -3328,6 +3438,8 @@ function TeamPage({
   onApprove,
   onSaveEmployeeRow,
   onSaveEmployeeDetails,
+  onAwardBadge,
+  onRemoveBadge,
   onDeleteEmployee,
   onDeleteMonthlyRecords,
   onNotice,
@@ -3347,6 +3459,8 @@ function TeamPage({
     employee: EmployeeProfile,
     details: EmployeeProfileDetails,
   ) => Promise<void>;
+  onAwardBadge: (employee: EmployeeProfile, badgeId: EmployeeBadgeId) => Promise<void>;
+  onRemoveBadge: (employee: EmployeeProfile, badgeId: EmployeeBadgeId) => Promise<void>;
   onDeleteEmployee: (employee: EmployeeProfile) => void;
   onDeleteMonthlyRecords: (month: string) => Promise<MonthCleanupCounts>;
   onNotice: (kind: "success" | "error", message: string) => void;
@@ -3527,6 +3641,8 @@ function TeamPage({
             key={selectedEmployee.uid}
             employee={selectedEmployee}
             onSave={onSaveEmployeeDetails}
+            onAwardBadge={onAwardBadge}
+            onRemoveBadge={onRemoveBadge}
             onClose={() => setProfileEmployeeId(null)}
           />
           <section className="panel employee-attendance-panel">
@@ -3854,6 +3970,8 @@ function EmployeeAccountRow({
 function EmployeeProfileDetailsPanel({
   employee,
   onSave,
+  onAwardBadge,
+  onRemoveBadge,
   onClose,
 }: {
   employee: EmployeeProfile;
@@ -3861,6 +3979,8 @@ function EmployeeProfileDetailsPanel({
     employee: EmployeeProfile,
     details: EmployeeProfileDetails,
   ) => Promise<void>;
+  onAwardBadge: (employee: EmployeeProfile, badgeId: EmployeeBadgeId) => Promise<void>;
+  onRemoveBadge: (employee: EmployeeProfile, badgeId: EmployeeBadgeId) => Promise<void>;
   onClose: () => void;
 }) {
   const [displayName, setDisplayName] = useState(employee.displayName);
@@ -3872,6 +3992,8 @@ function EmployeeProfileDetailsPanel({
   );
   const [phone, setPhone] = useState(employee.phone ?? "");
   const [saving, setSaving] = useState(false);
+  const [selectedBadgeId, setSelectedBadgeId] = useState<EmployeeBadgeId | "">("");
+  const [badgeBusy, setBadgeBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3882,6 +4004,32 @@ function EmployeeProfileDetailsPanel({
       setSaving(false);
     }
   }
+
+  async function awardBadge() {
+    if (!selectedBadgeId || badgeBusy) return;
+    setBadgeBusy(true);
+    try {
+      await onAwardBadge(employee, selectedBadgeId);
+      setSelectedBadgeId("");
+    } finally {
+      setBadgeBusy(false);
+    }
+  }
+
+  async function removeBadge(badgeId: EmployeeBadgeId) {
+    if (badgeBusy) return;
+    setBadgeBusy(true);
+    try {
+      await onRemoveBadge(employee, badgeId);
+    } finally {
+      setBadgeBusy(false);
+    }
+  }
+
+  const awardedBadgeIds = employee.badges ?? [];
+  const availableBadges = EMPLOYEE_BADGES.filter(
+    (badge) => !awardedBadgeIds.includes(badge.id),
+  );
 
   return (
     <section className="panel">
@@ -4044,6 +4192,61 @@ function EmployeeProfileDetailsPanel({
           </Button>
         </div>
       </form>
+      <div className="employee-badge-manager">
+        <div>
+          <h3>Recognition badges</h3>
+          <p>Assign a badge to recognize this employee’s contribution. Badges are visible to the team.</p>
+        </div>
+        <div className="employee-badge-manager-controls">
+          <label className="field">
+            <span>Choose a badge</span>
+            <select
+              value={selectedBadgeId}
+              disabled={badgeBusy || !availableBadges.length}
+              onChange={(event) => {
+                const badge = EMPLOYEE_BADGES.find((item) => item.id === event.target.value);
+                setSelectedBadgeId(badge?.id ?? "");
+              }}
+            >
+              <option value="">
+                {availableBadges.length ? "Select a badge" : "All badges awarded"}
+              </option>
+              {availableBadges.map((badge) => (
+                <option value={badge.id} key={badge.id}>{badge.label}</option>
+              ))}
+            </select>
+          </label>
+          <Button
+            type="button"
+            disabled={!selectedBadgeId || badgeBusy}
+            onClick={awardBadge}
+          >
+            <Award size={15} /> {badgeBusy ? "Saving…" : "Award badge"}
+          </Button>
+        </div>
+        {awardedBadgeIds.length ? (
+          <ul className="employee-badge-admin-list">
+            {EMPLOYEE_BADGES.filter((badge) => awardedBadgeIds.includes(badge.id)).map((badge) => (
+              <li key={badge.id}>
+                <span className={`employee-badge employee-badge-${badge.id}`}>
+                  <Award size={15} aria-hidden="true" />
+                  {badge.label}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={badgeBusy}
+                  onClick={() => removeBadge(badge.id)}
+                >
+                  <X size={14} /> Remove
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="employee-badges-empty">No badges have been awarded yet.</p>
+        )}
+      </div>
     </section>
   );
 }

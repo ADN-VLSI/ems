@@ -22,6 +22,31 @@ export interface TrackRecord {
   endDate: string;
 }
 
+export const EMPLOYEE_BADGES = [
+  { id: "team-player", label: "Team Player", description: "Recognizes collaboration and support for teammates." },
+  { id: "problem-solver", label: "Problem Solver", description: "Recognizes initiative in solving difficult challenges." },
+  { id: "innovation", label: "Innovation", description: "Recognizes creative ideas and improvements." },
+  { id: "mentorship", label: "Mentorship", description: "Recognizes guidance and support for colleagues." },
+  { id: "customer-impact", label: "Customer Impact", description: "Recognizes meaningful impact for customers." },
+  { id: "excellence", label: "Excellence", description: "Recognizes consistently excellent work." },
+
+  // Attendance & Punctuality
+  { id: "attendance-champion", label: "Attendance Champion", description: "Recognizes consistent daily attendance over a defined period." },
+  { id: "on-time-hero", label: "On-Time Hero", description: "Recognizes consistently arriving on time and respecting work schedules." },
+  { id: "perfect-attendance", label: "Perfect Attendance", description: "Recognizes completing a defined period without unplanned absences." },
+  { id: "early-bird", label: "Early Bird", description: "Recognizes consistently arriving before the scheduled start time." },
+  { id: "streak-master", label: "Streak Master", description: "Recognizes maintaining a sustained streak of regular attendance." },
+  { id: "break-return-pro", label: "Break Return Pro", description: "Recognizes consistently returning from breaks on schedule." },
+
+  // Reliability & Commitment
+  { id: "dependability", label: "Dependability", description: "Recognizes being reliable, accountable, and ready to contribute." },
+  { id: "deadline-crusher", label: "Deadline Crusher", description: "Recognizes consistently completing assigned work on time." },
+  { id: "consistency-star", label: "Consistency Star", description: "Recognizes maintaining dependable performance over time." },
+  { id: "extra-mile", label: "Going the Extra Mile", description: "Recognizes voluntary effort that meaningfully supports team goals." },
+] as const;
+
+export type EmployeeBadgeId = (typeof EMPLOYEE_BADGES)[number]["id"];
+
 export interface EmployeeProfile {
   uid: string;
   email: string;
@@ -35,6 +60,7 @@ export interface EmployeeProfile {
   trackRecords?: TrackRecord[];
   phone?: string;
   leaveBalances?: Record<string, LeaveBalance>;
+  badges?: EmployeeBadgeId[];
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

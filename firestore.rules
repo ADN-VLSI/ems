@@ -81,6 +81,13 @@ service cloud.firestore {
             )
             || (
               request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                'badges', 'updatedAt'
+              ])
+              && request.resource.data.badges is list
+              && request.resource.data.badges.size() <= 16
+            )
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                 'reportingManagerId', 'updatedAt'
               ])
               && validReportingManager(request.resource.data.reportingManagerId, userId)

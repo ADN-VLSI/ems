@@ -2953,6 +2953,157 @@ tbody tr:last-child td {
   font-size: 13.5px;
 }
 
+.employee-badges {
+  margin-top: 18px;
+}
+
+.employee-badges h3,
+.employee-badge-manager h3 {
+  margin: 0 0 10px;
+  color: #344154;
+  font-size: 14px;
+}
+
+.employee-badge-list,
+.employee-badge-admin-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.employee-badge {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid #e7d9a9;
+  border-radius: 999px;
+  background: #fff8df;
+  color: #795b17;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.employee-badge-problem-solver,
+.employee-badge-innovation {
+  border-color: #cbdcf3;
+  background: #eff5ff;
+  color: #365c97;
+}
+
+.employee-badge-mentorship,
+.employee-badge-team-player {
+  border-color: #c8e5d8;
+  background: #eef8f2;
+  color: #28704f;
+}
+
+.employee-badge-customer-impact {
+  border-color: #dfd2f1;
+  background: #f6f0ff;
+  color: #6c4a9e;
+}
+
+.employee-badge-attendance-champion,
+.employee-badge-on-time-hero,
+.employee-badge-perfect-attendance,
+.employee-badge-early-bird,
+.employee-badge-streak-master,
+.employee-badge-break-return-pro {
+  border-color: #c8e5d8;
+  background: #eef8f2;
+  color: #28704f;
+}
+
+.employee-badge-dependability,
+.employee-badge-deadline-crusher,
+.employee-badge-consistency-star,
+.employee-badge-extra-mile {
+  border-color: #cbdcf3;
+  background: #eff5ff;
+  color: #365c97;
+}
+
+.employee-badges-empty {
+  margin: 0;
+  color: #778294;
+  font-size: 13px;
+}
+
+.dashboard-recognition-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-recognition-list > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.dashboard-recognition-list > li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.dashboard-recognition-list > li > div {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.dashboard-recognition-list > li > div > strong {
+  color: #344154;
+  font-size: 13.5px;
+}
+
+.employee-badge-manager {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #e9edf2;
+}
+
+.employee-badge-manager > div:first-child p {
+  margin: 0;
+  color: #778294;
+  font-size: 13px;
+}
+
+.employee-badge-manager-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.employee-badge-manager-controls .field {
+  width: min(100%, 340px);
+}
+
+.employee-badge-admin-list {
+  flex-direction: column;
+}
+
+.employee-badge-admin-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #edf0f3;
+}
+
 .track-record-row {
   display: grid;
   grid-template-columns: minmax(180px, 1.4fr) repeat(2, minmax(145px, 1fr)) 34px;
@@ -2962,6 +3113,13 @@ tbody tr:last-child td {
   border: 1px solid #e9edf2;
   border-radius: 9px;
   background: #fcfdff;
+}
+
+@media (max-width: 560px) {
+  .employee-badge-manager-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .track-record-remove {
