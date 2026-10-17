@@ -1470,7 +1470,10 @@ function App() {
             />
           )}
           {activeSection === "team" && !isAdmin && (
-            <EmployeeDirectoryPage employees={approvedEmployees} />
+            <EmployeeDirectoryPage
+              employees={approvedEmployees}
+              managerId={user.uid}
+            />
           )}
         </div>
         <footer className="page-footer">
@@ -2250,9 +2253,20 @@ function getCurrentDesignation(
   return employee.trackRecords?.find((record) => !record.endDate)?.role.trim() || undefined;
 }
 
-function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) {
+function EmployeeDirectoryPage({
+  employees,
+  managerId,
+}: {
+  employees: EmployeeProfile[];
+  managerId: string;
+}) {
   const [search, setSearch] = useState("");
   const searchTerm = search.trim().toLowerCase();
+  const directReports = employees
+    .filter((employee) => employee.reportingManagerId === managerId)
+    .sort((first, second) =>
+      getEmployeeDisplayName(first).localeCompare(getEmployeeDisplayName(second)),
+    );
   const visibleEmployees = employees
     .filter((employee) => {
       const manager = employees.find(
@@ -2268,6 +2282,39 @@ function EmployeeDirectoryPage({ employees }: { employees: EmployeeProfile[] }) 
 
   return (
     <div className="content-stack">
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>People you manage</h2>
+            <p>Employees assigned to you as their reporting manager.</p>
+          </div>
+          <span className="direct-report-count">
+            {directReports.length} {directReports.length === 1 ? "person" : "people"}
+          </span>
+        </div>
+        {directReports.length ? (
+          <ul className="direct-report-list">
+            {directReports.map((employee) => (
+              <li key={employee.uid}>
+                <div className="person-cell">
+                  <Initials name={getEmployeeDisplayName(employee)} />
+                  <span>
+                    <strong>{getEmployeeDisplayName(employee)}</strong>
+                    <small>{employee.officialEmail || employee.email}</small>
+                  </span>
+                </div>
+                <span className="direct-report-designation">
+                  {getCurrentDesignation(employee) || "Designation not provided"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="direct-report-empty">
+            No employees are currently assigned to you.
+          </p>
+        )}
+      </section>
       <section className="panel">
         <div className="panel-heading panel-heading-search">
           <div>

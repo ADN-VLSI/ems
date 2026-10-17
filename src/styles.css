@@ -2530,6 +2530,53 @@ tbody tr:last-child td {
   gap: 8px;
 }
 
+.direct-report-count {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #456da8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.direct-report-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.direct-report-list li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.direct-report-list li:last-child {
+  border-bottom: 0;
+}
+
+.direct-report-designation,
+.direct-report-empty {
+  color: #7b8695;
+  font-size: 13px;
+}
+
+.direct-report-designation {
+  text-align: right;
+}
+
+.direct-report-empty {
+  margin: 0;
+  padding: 15px 0 3px;
+}
+
 .team-table {
   min-width: 950px;
 }
