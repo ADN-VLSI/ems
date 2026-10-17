@@ -3143,7 +3143,7 @@ function AttendancePage({
         <section className="panel employee-attendance-panel">
           <PanelHeading
             title="Your attendance history"
-            subtitle="A day-by-day view of your attendance over the past 12 months. Weekends, public holidays, and days without a recorded status stay gray."
+            subtitle="A day-by-day view of your attendance over the past 12 months. Recorded attendance is shown even on weekends; days without a recorded status stay gray."
           />
           <div className="employee-attendance-list">
             <EmployeeAttendanceHeatmap
@@ -3677,7 +3677,7 @@ function TeamPage({
           <section className="panel employee-attendance-panel">
             <PanelHeading
               title="Attendance history"
-              subtitle="A day-by-day view over the past 12 months. Weekends, public holidays, and days without a recorded status stay gray."
+              subtitle="A day-by-day view over the past 12 months. Recorded attendance is shown even on weekends; days without a recorded status stay gray."
             />
             <div className="employee-attendance-list">
               <EmployeeAttendanceHeatmap
@@ -3818,11 +3818,11 @@ function EmployeeAttendanceHeatmap({
                     const weekday = new Date(`${date}T00:00:00`).getDay();
                     const status = statusByDate[date];
                     const isWeekend = weekday === 5 || weekday === 6;
-                    const tone = isWeekend ? "weekend" : status ?? "empty";
-                    const label = isWeekend
-                      ? "Weekend"
-                      : status
-                        ? statusLabels[status]
+                    const tone = status ?? (isWeekend ? "weekend" : "empty");
+                    const label = status
+                      ? statusLabels[status]
+                      : isWeekend
+                        ? "Weekend"
                         : "No attendance recorded";
                     return (
                       <span
