@@ -47,13 +47,13 @@ The entire system is architected to operate on **100% ongoing free tiers**, with
 
 ### Provider Free-Tier Limits & Behavior
 
-| Service | Free Tier Limit | Expected Daily Volume | Behavior at Limit |
-| :--- | :--- | :--- | :--- |
-| **GitHub Pages** | 100 GB/month bandwidth | &lt; 2 GB / month | HTTP 429; no automatic charges |
-| **Cloudflare Workers** | 100,000 requests / day | ~500–1,500 req / day | HTTP 429 (quota error); no paid overage |
-| **Cloudflare D1** | 5,000,000 read rows / day, 100,000 write rows / day | &lt; 10,000 reads / day | Rejects excess writes safely with error |
-| **GitHub Actions** | 2,000 min/mo (public repos unlimited) | ~5 min / day (~150 min/mo) | Workflow pauses safely |
-| **SMTP Service** | Brevo: 300/day, Gmail: 500/day | 20–80 emails / day | Safe queue pause / retry |
+| Service                | Free Tier Limit                                     | Expected Daily Volume      | Behavior at Limit                       |
+| :--------------------- | :-------------------------------------------------- | :------------------------- | :-------------------------------------- |
+| **GitHub Pages**       | 100 GB/month bandwidth                              | &lt; 2 GB / month          | HTTP 429; no automatic charges          |
+| **Cloudflare Workers** | 100,000 requests / day                              | ~500–1,500 req / day       | HTTP 429 (quota error); no paid overage |
+| **Cloudflare D1**      | 5,000,000 read rows / day, 100,000 write rows / day | &lt; 10,000 reads / day    | Rejects excess writes safely with error |
+| **GitHub Actions**     | 2,000 min/mo (public repos unlimited)               | ~5 min / day (~150 min/mo) | Workflow pauses safely                  |
+| **SMTP Service**       | Brevo: 300/day, Gmail: 500/day                      | 20–80 emails / day         | Safe queue pause / retry                |
 
 ---
 
@@ -104,6 +104,7 @@ The entire system is architected to operate on **100% ongoing free tiers**, with
 ### Required Form Sections
 
 Each daily update must include:
+
 - **Today's Tasks:** Planned core tasks and deliverables worked on today (Required).
 - **Sudden Tasks:** Urgent requests, unexpected bugs, or ad-hoc meetings.
 - **Blockers:** Impediments, dependencies, or waiting on external partners.
@@ -116,8 +117,9 @@ Employees can add, reorder, and remove multiple bullet points under each section
 ## Assigned GitHub Issues & Project Boards
 
 The system connects to GitHub via a read-only GitHub App:
+
 - Retrieves open issues assigned to the signed-in employee's GitHub username.
-- Queries GitHub Projects (v2) tracking boards, displaying project titles (e.g. *EMS Sprint Board*) and statuses (e.g. *In Progress*, *Review*).
+- Queries GitHub Projects (v2) tracking boards, displaying project titles (e.g. _EMS Sprint Board_) and statuses (e.g. _In Progress_, _Review_).
 - An issue can belong to multiple tracking boards; all associated boards are displayed.
 - **1-Click Integration:** Employees can click `+ Today's Task` or `+ Plan` directly on any issue card to immediately append it to their update form!
 - Zero personal access tokens (PATs) are requested from employees.
@@ -136,11 +138,11 @@ At **11:35 PM Asia/Dhaka** (5 minutes after cutoff), the scheduled GitHub Action
 
 ### Combined Report Table Structure
 
-| Name | GitHub ID | Today's Tasks | Sudden Tasks | Blockers | Plans Going Forward |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| Mohiuddin Reyad | @m-reyad | • Verified floorplan power margins | • Emergency DRC deck review | *None* | • Run full tape-out sign-off |
-| Farhan Efty | @farhan-efty | • Finished RTL synthesis for ALU | • CTS skew debug | • Waiting on IO pad library | • Placement optimization |
-| Foez Ahmed | @foez-ahmed | • Built daily report pipeline | • Resolved CORS preflight | *None* | • Monitor 11:35 PM dispatch |
+| Name            | GitHub ID    | Today's Tasks                      | Sudden Tasks                | Blockers                    | Plans Going Forward          |
+| :-------------- | :----------- | :--------------------------------- | :-------------------------- | :-------------------------- | :--------------------------- |
+| Mohiuddin Reyad | @m-reyad     | • Verified floorplan power margins | • Emergency DRC deck review | _None_                      | • Run full tape-out sign-off |
+| Farhan Efty     | @farhan-efty | • Finished RTL synthesis for ALU   | • CTS skew debug            | • Waiting on IO pad library | • Placement optimization     |
+| Foez Ahmed      | @foez-ahmed  | • Built daily report pipeline      | • Resolved CORS preflight   | _None_                      | • Monitor 11:35 PM dispatch  |
 
 ### Idempotency Guarantee
 
@@ -186,16 +188,16 @@ npx wrangler deploy
 
 In your GitHub repository, navigate to **Settings > Secrets and variables > Actions** and add:
 
-| Secret Name | Description | Example |
-| :--- | :--- | :--- |
-| `BACKEND_API_URL` | URL of deployed Cloudflare Worker | `https://ems-worker-api.yoursubdomain.workers.dev` |
-| `REPORT_API_KEY` | Same key configured in Cloudflare Worker secrets | `strong_random_secret_string` |
-| `SMTP_HOST` | Free SMTP host | `smtp-relay.brevo.com` or `smtp.gmail.com` |
-| `SMTP_PORT` | SMTP port | `587` |
-| `SMTP_USER` | SMTP username | `your-smtp-account@domain.com` |
-| `SMTP_PASS` | SMTP password / app password | `your_smtp_app_password` |
-| `SMTP_FROM` | Sender display name & email | `EMS Updates <updates@adnsemicon.com>` |
-| `VITE_API_URL` | Worker API URL for frontend build | `https://ems-worker-api.yoursubdomain.workers.dev` |
+| Secret Name       | Description                                      | Example                                            |
+| :---------------- | :----------------------------------------------- | :------------------------------------------------- |
+| `BACKEND_API_URL` | URL of deployed Cloudflare Worker                | `https://ems-worker-api.yoursubdomain.workers.dev` |
+| `REPORT_API_KEY`  | Same key configured in Cloudflare Worker secrets | `strong_random_secret_string`                      |
+| `SMTP_HOST`       | Free SMTP host                                   | `smtp-relay.brevo.com` or `smtp.gmail.com`         |
+| `SMTP_PORT`       | SMTP port                                        | `587`                                              |
+| `SMTP_USER`       | SMTP username                                    | `your-smtp-account@domain.com`                     |
+| `SMTP_PASS`       | SMTP password / app password                     | `your_smtp_app_password`                           |
+| `SMTP_FROM`       | Sender display name & email                      | `EMS Updates <updates@adnsemicon.com>`             |
+| `VITE_API_URL`    | Worker API URL for frontend build                | `https://ems-worker-api.yoursubdomain.workers.dev` |
 
 ### 3. Deploy Frontend to GitHub Pages
 
