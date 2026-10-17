@@ -1,0 +1,57 @@
+name: Daily Update Reports & Email Dispatch
+
+on:
+  schedule:
+    # 17:35 UTC = 23:35 Asia/Dhaka (5 minutes after 11:30 PM cutoff)
+    - cron: '35 17 * * *'
+  workflow_dispatch:
+    inputs:
+      report_date:
+        description: 'Specific date to report (YYYY-MM-DD, defaults to today)'
+        required: false
+        type: string
+      bypass_cutoff:
+        description: 'Bypass 11:30 PM cutoff requirement (for testing only)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: daily-report-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch-reports:
+    name: Lock Updates & Send Daily Reports via SMTP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: .github/scripts/package.json
+
+      - name: Install script dependencies
+        run: |
+          cd .github/scripts
+          npm ci || npm install
+
+      - name: Run Daily Reports Dispatcher
+        env:
+          BACKEND_API_URL: ${{ secrets.BACKEND_API_URL }}
+          REPORT_API_KEY: ${{ secrets.REPORT_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          REPORT_DATE: ${{ github.event.inputs.report_date }}
+          BYPASS_CUTOFF: ${{ github.event.inputs.bypass_cutoff }}
+        run: |
+          node .github/scripts/send-daily-reports.mjs

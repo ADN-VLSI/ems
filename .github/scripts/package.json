@@ -1,0 +1,10 @@
+{
+  "name": "ems-report-sender",
+  "version": "1.0.0",
+  "description": "Idempotent SMTP email dispatcher for Employee Daily Update System",
+  "type": "module",
+  "main": "send-daily-reports.mjs",
+  "dependencies": {
+    "nodemailer": "^6.9.16"
+  }
+}

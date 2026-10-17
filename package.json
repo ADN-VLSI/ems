@@ -1,0 +1,15 @@
+{
+  "name": "ems-root",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend/api",
+    ".github/scripts"
+  ],
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "dev:worker": "npm --prefix backend/api run dev",
+    "deploy:worker": "npm --prefix backend/api run deploy"
+  }
+}

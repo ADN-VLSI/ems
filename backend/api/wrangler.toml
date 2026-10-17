@@ -1,0 +1,27 @@
+name = "ems-worker-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-12"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+APP_TIMEZONE = "Asia/Dhaka"
+FRONTEND_URL = "http://localhost:5173"
+COMPANY_REPORT_TO = "foez.ahmed@adnsemicon.com"
+COMPANY_REPORT_CC = "mohiuddin.reyad@adnsemicon.com,farhan.efty@adnsemicon.com"
+
+# Cloudflare D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "ems-db"
+database_id = "local-d1-ems-db"
+migrations_dir = "./migrations"
+
+# Production environment overrides
+# Configure these secrets using:
+#   npx wrangler secret put GITHUB_CLIENT_ID
+#   npx wrangler secret put GITHUB_CLIENT_SECRET
+#   npx wrangler secret put JWT_SECRET
+#   npx wrangler secret put REPORT_API_KEY
+#   npx wrangler secret put GITHUB_APP_ID (optional)
+#   npx wrangler secret put GITHUB_APP_PRIVATE_KEY (optional)
+#   npx wrangler secret put GITHUB_APP_INSTALLATION_ID (optional)
