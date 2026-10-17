@@ -5,6 +5,7 @@ export interface Env {
   // Variables
   APP_TIMEZONE?: string;
   FRONTEND_URL?: string;
+  DEV_SIGN_IN_ENABLED?: string;
   COMPANY_REPORT_TO?: string;
   COMPANY_REPORT_CC?: string;
 

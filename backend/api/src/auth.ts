@@ -37,7 +37,7 @@ export async function signJwt(payload: any, secret: string): Promise<string> {
 
   const key = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(secret || 'default-ems-dev-secret-change-in-prod'),
+    new TextEncoder().encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -68,7 +68,7 @@ export async function verifyJwt(token: string, secret: string): Promise<UserSess
 
     const key = await crypto.subtle.importKey(
       'raw',
-      new TextEncoder().encode(secret || 'default-ems-dev-secret-change-in-prod'),
+      new TextEncoder().encode(secret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']
@@ -103,11 +103,11 @@ export async function verifyJwt(token: string, secret: string): Promise<UserSess
  */
 export async function authenticateRequest(request: Request, env: Env): Promise<UserSessionPayload | null> {
   const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!env.JWT_SECRET || !authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
   const token = authHeader.substring(7).trim();
-  return verifyJwt(token, env.JWT_SECRET || 'default-ems-dev-secret-change-in-prod');
+  return verifyJwt(token, env.JWT_SECRET);
 }
 
 /**

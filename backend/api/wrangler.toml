@@ -5,7 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 APP_TIMEZONE = "Asia/Dhaka"
-FRONTEND_URL = "http://localhost:5173"
+FRONTEND_URL = "https://adn-vlsi.github.io/ems"
+DEV_SIGN_IN_ENABLED = "false"
 COMPANY_REPORT_TO = "foez.ahmed@adnsemicon.com"
 COMPANY_REPORT_CC = "mohiuddin.reyad@adnsemicon.com,farhan.efty@adnsemicon.com"
 
@@ -13,7 +14,7 @@ COMPANY_REPORT_CC = "mohiuddin.reyad@adnsemicon.com,farhan.efty@adnsemicon.com"
 [[d1_databases]]
 binding = "DB"
 database_name = "ems-db"
-database_id = "local-d1-ems-db"
+database_id = "178548ad-7422-4bf3-b4b5-a5141fe1b1aa"
 migrations_dir = "./migrations"
 
 # Production environment overrides

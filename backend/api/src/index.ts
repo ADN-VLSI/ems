@@ -76,6 +76,10 @@ export default {
 
       // 5. GitHub OAuth Callback
       if (url.pathname === '/api/auth/github/callback' && method === 'GET') {
+        if (!env.JWT_SECRET) {
+          return errorResponse('JWT_SECRET is not configured in worker secrets.', 500, null, env, request);
+        }
+
         const code = url.searchParams.get('code');
         if (!code) {
           return errorResponse('Missing authorization code from GitHub.', 400, null, env, request);
@@ -97,7 +101,7 @@ export default {
           exp,
         };
 
-        const token = await signJwt(sessionPayload, env.JWT_SECRET || 'default-secret');
+        const token = await signJwt(sessionPayload, env.JWT_SECRET);
 
         // Redirect back to frontend with the auth token
         const frontendUrl = env.FRONTEND_URL || 'http://localhost:5173';
@@ -109,6 +113,13 @@ export default {
 
       // 6. Dev / Demo Login (Useful for local testing without setting up OAuth keys)
       if (url.pathname === '/api/auth/dev-login' && method === 'POST') {
+        if (env.DEV_SIGN_IN_ENABLED !== 'true') {
+          return errorResponse('Not found.', 404, null, env, request);
+        }
+        if (!env.JWT_SECRET) {
+          return errorResponse('JWT_SECRET is not configured in worker secrets.', 500, null, env, request);
+        }
+
         const body: any = await request.json().catch(() => ({}));
         const username = body.username || 'foez-ahmed';
         const name = body.name || 'Foez Ahmed';
@@ -133,7 +144,7 @@ export default {
             role: employee.role,
             exp,
           },
-          env.JWT_SECRET || 'default-secret'
+          env.JWT_SECRET
         );
 
         return jsonResponse({ success: true, token, employee }, 200, env, request);
@@ -420,7 +431,10 @@ export default {
         const authHeader = request.headers.get('Authorization') || '';
         const token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-        const expectedKey = env.REPORT_API_KEY || 'default-report-api-key';
+        if (!env.REPORT_API_KEY) {
+          return errorResponse('REPORT_API_KEY is not configured in worker secrets.', 500, null, env, request);
+        }
+        const expectedKey = env.REPORT_API_KEY;
         if (!token || token !== expectedKey) {
           return errorResponse('Forbidden: Invalid REPORT_API_KEY.', 403, null, env, request);
         }
@@ -451,7 +465,10 @@ export default {
       if (url.pathname === '/api/reports/daily/confirm' && method === 'POST') {
         const authHeader = request.headers.get('Authorization') || '';
         const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        const expectedKey = env.REPORT_API_KEY || 'default-report-api-key';
+        if (!env.REPORT_API_KEY) {
+          return errorResponse('REPORT_API_KEY is not configured in worker secrets.', 500, null, env, request);
+        }
+        const expectedKey = env.REPORT_API_KEY;
         if (!token || token !== expectedKey) {
           return errorResponse('Forbidden: Invalid REPORT_API_KEY.', 403, null, env, request);
         }
