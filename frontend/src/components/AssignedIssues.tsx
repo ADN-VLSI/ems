@@ -221,7 +221,9 @@ export const AssignedIssues: React.FC<AssignedIssuesProps> = ({
                   <button
                     type="button"
                     onClick={() =>
-                      onInsertToTasks(`[#${issue.number}] ${issue.title} (${issue.repository})`)
+                      onInsertToTasks(
+                        `[#${issue.number}] ${issue.title} (${issue.repository}) - ${issue.url}`
+                      )
                     }
                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
                   >
@@ -233,7 +235,9 @@ export const AssignedIssues: React.FC<AssignedIssuesProps> = ({
                   <button
                     type="button"
                     onClick={() =>
-                      onInsertToPlans(`[#${issue.number}] ${issue.title} (${issue.repository})`)
+                      onInsertToPlans(
+                        `[#${issue.number}] ${issue.title} (${issue.repository}) - ${issue.url}`
+                      )
                     }
                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
                   >
