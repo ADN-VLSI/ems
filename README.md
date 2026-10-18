@@ -1,6 +1,6 @@
 # Employee Daily Update & Reporting System (EMS)
 
-An enterprise daily work update and reporting system for employees of ADN Semiconductor. Employees sign in using their GitHub accounts, track assigned issues and project boards, and submit daily updates before the strict 11:30 PM cutoff. An idempotent automated workflow locks updates and dispatches individual, team, and company-wide tabular email reports through SMTP.
+An enterprise daily work update and reporting system for employees of ADN Semiconductor. Employees sign in using their GitHub accounts, track assigned issues and project boards, and save editable daily updates before the strict 11:30 PM cutoff. An idempotent automated workflow locks updates and dispatches individual, team, and company-wide tabular email reports through SMTP.
 
 ---
 
@@ -92,14 +92,14 @@ The entire system is architected to operate on **100% ongoing free tiers**, with
 
 ## Daily Update Workflow & Deadline Cutoff
 
-1. **Submission Window:**
-   - Employees can create, edit, and save drafts of their daily updates up until **11:30 PM (Asia/Dhaka)**.
+1. **Daily Update Window:**
+   - Employees can create, edit, and save drafts of their daily updates up until **11:30 PM (Asia/Dhaka)**. No separate submission is required; the scheduled report includes the latest saved draft.
    - The UI shows a real-time countdown timer to the deadline.
 2. **Cutoff Enforcement:**
    - At **11:30 PM**, updates for the day are strictly locked by the backend (`daily_updates.status = 'locked'`).
    - The backend enforces the deadline independently of frontend status. Any late `POST /api/updates/today` returns `403 Forbidden`.
-3. **Next-Day Submissions:**
-   - Once reports are locked and dispatched, the system automatically advances to the next business date.
+3. **Next-Day Updates:**
+   - Once reports are locked and dispatched, the system advances to the next date and opens a fresh update.
 
 ### Required Form Sections
 
@@ -132,7 +132,7 @@ When GitHub App credentials are configured, the system connects to GitHub via a 
 
 At **11:35 PM Asia/Dhaka** (5 minutes after cutoff), the scheduled GitHub Actions workflow triggers the dispatcher:
 
-1. **Individual Employee Copy:** Sent to each employee with a copy of their submitted daily update.
+1. **Individual Employee Copy:** Sent to each employee with a copy of their saved daily update.
 2. **Manager Team Report:** Combined tabular report sent to the team manager.
 3. **Company-Wide Leadership Report:** Sent to:
    - **To:** `foez.ahmed@adnsemicon.com`

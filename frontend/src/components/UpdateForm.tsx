@@ -5,14 +5,12 @@ import {
   Plus,
   Trash2,
   Save,
-  Send,
   AlertCircle,
   Lock,
   ListTodo,
   Zap,
   ShieldAlert,
   Compass,
-  Check,
 } from 'lucide-react';
 
 interface UpdateFormProps {
@@ -23,7 +21,6 @@ interface UpdateFormProps {
     suddenTasks: string[];
     blockers: string[];
     plansGoingForward: string[];
-    submit: boolean;
   }) => Promise<void>;
   loading: boolean;
   insertedItemTrigger?: { section: 'todaysTasks' | 'plansGoingForward'; text: string } | null;
@@ -121,7 +118,7 @@ export const UpdateForm: React.FC<UpdateFormProps> = ({
     }
   };
 
-  const handleSubmit = async (submit: boolean) => {
+  const handleSave = async () => {
     setStatusMessage(null);
 
     const cleanTodays = todaysTasks.map(t => t.trim()).filter(Boolean);
@@ -129,24 +126,16 @@ export const UpdateForm: React.FC<UpdateFormProps> = ({
     const cleanBlockers = blockers.map(t => t.trim()).filter(Boolean);
     const cleanPlans = plansGoingForward.map(t => t.trim()).filter(Boolean);
 
-    if (submit && cleanTodays.length === 0) {
-      setStatusMessage({ text: "Please enter at least one task under 'Today\'s Tasks'.", type: 'error' });
-      return;
-    }
-
     try {
       await onSave({
         todaysTasks: cleanTodays,
         suddenTasks: cleanSudden,
         blockers: cleanBlockers,
         plansGoingForward: cleanPlans,
-        submit,
       });
 
       setStatusMessage({
-        text: submit
-          ? 'Daily update submitted successfully! It will be included in the scheduled 11:30 PM report.'
-          : 'Draft saved. You can continue editing until 11:30 PM.',
+        text: 'Draft saved. You can continue editing until 11:30 PM.',
         type: 'success',
       });
     } catch (err: any) {
@@ -254,7 +243,7 @@ export const UpdateForm: React.FC<UpdateFormProps> = ({
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800">
           <Lock className="w-5 h-5 text-amber-600 flex-shrink-0" />
           <div className="text-xs sm:text-sm">
-            <strong className="font-bold">This update is locked.</strong> The 11:30 PM cutoff has passed. Changes can no longer be made to this report.
+            <strong className="font-bold">This update is locked.</strong> The 11:30 PM cutoff has passed. This report is being prepared for email.
           </div>
         </div>
       )}
@@ -314,34 +303,18 @@ export const UpdateForm: React.FC<UpdateFormProps> = ({
       {!isLocked && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
           <div className="text-xs text-slate-500">
-            {initialUpdate?.status === 'submitted' ? (
-              <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold">
-                <Check className="w-4 h-4" /> Already submitted. You can still modify and re-save until 11:30 PM.
-              </span>
-            ) : (
-              <span>Editable until 11:30 PM. At 11:30 PM, this update is automatically locked.</span>
-            )}
+            <span>Editable until 11:30 PM. Reports are emailed automatically after the cutoff.</span>
           </div>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               type="button"
               disabled={loading}
-              onClick={() => handleSubmit(false)}
+              onClick={handleSave}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-98 transition-all"
             >
               <Save className="w-3.5 h-3.5 text-slate-500" />
               <span>Save Draft</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => handleSubmit(true)}
-              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-adn-600 to-adn-700 text-white text-xs font-bold shadow-md shadow-adn-600/20 hover:from-adn-700 hover:to-adn-800 active:scale-98 transition-all"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Submit Daily Update</span>
             </button>
           </div>
         </div>

@@ -117,7 +117,6 @@ export const api = {
     suddenTasks: string[];
     blockers: string[];
     plansGoingForward: string[];
-    submit?: boolean;
   }): Promise<{ success: boolean; message: string; updateId: string; status: string; deadlineStatus: DeadlineStatus }> {
     return request('/api/updates/today', {
       method: 'POST',

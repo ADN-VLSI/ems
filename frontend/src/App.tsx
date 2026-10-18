@@ -126,7 +126,6 @@ export function App() {
     suddenTasks: string[];
     blockers: string[];
     plansGoingForward: string[];
-    submit: boolean;
   }) => {
     setActionLoading(true);
     try {
@@ -143,7 +142,7 @@ export function App() {
         suddenTasks: payload.suddenTasks,
         blockers: payload.blockers,
         plansGoingForward: payload.plansGoingForward,
-        status: payload.submit ? 'submitted' : 'draft',
+        status: 'draft',
       });
 
       // Refresh history

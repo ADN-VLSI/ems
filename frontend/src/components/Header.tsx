@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
                   <div className="flex items-center justify-end gap-1 text-[11px] text-slate-500">
                     <Github className="w-3 h-3 text-slate-400" />
                     <span>@{user.githubUsername}</span>
-                    {user.managerName && (
+                    {user.role === 'employee' && user.managerName && (
                       <>
                         <span>•</span>
                         <span className="text-slate-600 font-medium">Manager: {user.managerName}</span>

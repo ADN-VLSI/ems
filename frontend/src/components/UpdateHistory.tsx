@@ -24,7 +24,7 @@ export const UpdateHistory: React.FC<UpdateHistoryProps> = ({ updates, loading, 
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight">Past Daily Updates</h3>
-            <p className="text-xs text-slate-500">Your historical logs and submitted reports</p>
+            <p className="text-xs text-slate-500">Your previous updates and emailed reports</p>
           </div>
         </div>
         <span className="text-xs font-semibold text-slate-500">{updates.length} updates logged</span>

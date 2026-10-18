@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DeadlineStatus } from '@shared/types';
+import { getTimePartsInTimezone } from '@shared/validation';
 import { Clock, Lock, CheckCircle2, AlertTriangle, Calendar } from 'lucide-react';
 
 interface DeadlineBannerProps {
@@ -14,7 +15,18 @@ export const DeadlineBanner: React.FC<DeadlineBannerProps> = ({ status, onRefres
     if (!status) return;
     setSecondsLeft(status.remainingSeconds);
 
-    if (status.isLocked || status.remainingSeconds <= 0) return;
+    if (status.isLocked) {
+      const statusTime = new Date(status.currentTimeIso);
+      const timeParts = getTimePartsInTimezone(statusTime, status.timezone);
+      const secondsIntoDay = timeParts.hour * 3600 + timeParts.minute * 60 + timeParts.second;
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - statusTime.getTime()) / 1000));
+      const secondsUntilMidnight = Math.max(1, 24 * 60 * 60 - secondsIntoDay - elapsedSeconds);
+      const timeout = setTimeout(() => onRefresh?.(), (secondsUntilMidnight + 1) * 1000);
+
+      return () => clearTimeout(timeout);
+    }
+
+    if (status.remainingSeconds <= 0) return;
 
     const interval = setInterval(() => {
       setSecondsLeft(prev => {
@@ -64,7 +76,7 @@ export const DeadlineBanner: React.FC<DeadlineBannerProps> = ({ status, onRefres
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
             <Calendar className="w-3.5 h-3.5" />
-            <span>Today's Work Submission • {dateFormatted}</span>
+            <span>Daily Update • {dateFormatted}</span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -76,7 +88,7 @@ export const DeadlineBanner: React.FC<DeadlineBannerProps> = ({ status, onRefres
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                SUBMISSIONS OPEN
+                UPDATES OPEN
               </span>
             )}
 
@@ -92,7 +104,7 @@ export const DeadlineBanner: React.FC<DeadlineBannerProps> = ({ status, onRefres
             <div className="text-right">
               <div className="text-xs text-slate-500 flex items-center gap-1 justify-end">
                 <Lock className="w-3 h-3 text-amber-600" />
-                <span>Next Submission Opens:</span>
+                <span>Next Update Opens:</span>
               </div>
               <div className="text-sm font-bold text-slate-900">
                 {status.nextSubmissionDate} ({status.nextSubmissionDeadlineDisplay})
@@ -118,7 +130,7 @@ export const DeadlineBanner: React.FC<DeadlineBannerProps> = ({ status, onRefres
         <div className="mt-3 pt-3 border-t border-amber-200/60 flex items-center gap-2 text-xs text-amber-800">
           <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600" />
           <span>
-            Daily updates for {status.currentDate} are now locked for scheduled report generation and email dispatch. Any updates submitted after emails are sent will count towards {status.nextSubmissionDate}.
+            Daily updates for {status.currentDate} are locked for scheduled report generation and email dispatch. The next day's update opens after the date rolls over.
           </span>
         </div>
       )}
