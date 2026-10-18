@@ -4,8 +4,8 @@ import { LogOut, Users, Shield, Cpu, Github, ExternalLink } from 'lucide-react';
 
 interface HeaderProps {
   user: Employee | null;
-  activeTab: 'update' | 'history' | 'team' | 'admin';
-  setActiveTab: (tab: 'update' | 'history' | 'team' | 'admin') => void;
+  activeTab: 'update' | 'team' | 'admin';
+  setActiveTab: (tab: 'update' | 'team' | 'admin') => void;
   onLogout: () => void;
 }
 
@@ -42,16 +42,6 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
                 }`}
               >
                 Today's Update
-              </button>
-              <button
-                onClick={() => setActiveTab('history')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'history'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                Past Updates
               </button>
               {user.role === 'manager' && (
                 <button
@@ -144,14 +134,6 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
               }`}
             >
               Today's Update
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
-                activeTab === 'history' ? 'bg-adn-600 text-white' : 'text-slate-600 bg-slate-100'
-              }`}
-            >
-              Past Updates
             </button>
             {user.role === 'manager' && (
               <button

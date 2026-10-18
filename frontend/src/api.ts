@@ -124,10 +124,6 @@ export const api = {
     });
   },
 
-  async getUpdateHistory(limit = 15): Promise<{ updates: DailyUpdate[] }> {
-    return request<{ updates: DailyUpdate[] }>(`/api/updates/history?limit=${limit}`);
-  },
-
   async getManagerTeam(): Promise<{
     team: Team | null;
     date: string;

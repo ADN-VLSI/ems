@@ -5,7 +5,6 @@ import { Header } from './components/Header';
 import { DeadlineBanner } from './components/DeadlineBanner';
 import { UpdateForm } from './components/UpdateForm';
 import { AssignedIssues } from './components/AssignedIssues';
-import { UpdateHistory } from './components/UpdateHistory';
 import { TeamOverview } from './components/TeamOverview';
 import { LoginView } from './components/LoginView';
 import { AdminUserManagement } from './components/AdminUserManagement';
@@ -16,7 +15,6 @@ export function App() {
   const [todayUpdate, setTodayUpdate] = useState<DailyUpdate | null>(null);
   const [issues, setIssues] = useState<GitHubIssueItem[]>([]);
   const [issuesNotice, setIssuesNotice] = useState<string | null>(null);
-  const [history, setHistory] = useState<DailyUpdate[]>([]);
   const [managerTeam, setManagerTeam] = useState<{
     team: Team | null;
     date: string;
@@ -24,7 +22,7 @@ export function App() {
   } | null>(null);
   const [managerTeamError, setManagerTeamError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'update' | 'history' | 'team' | 'admin'>('update');
+  const [activeTab, setActiveTab] = useState<'update' | 'team' | 'admin'>('update');
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [issuesLoading, setIssuesLoading] = useState<boolean>(false);
@@ -87,13 +85,6 @@ export function App() {
       // 6. Fetch issues
       loadIssues();
 
-      // 7. Fetch history
-      try {
-        const historyRes = await api.getUpdateHistory();
-        setHistory(historyRes.updates || []);
-      } catch (e) {
-        console.warn('Failed to load history:', e);
-      }
     } catch (err: any) {
       console.error('Initialization error:', err);
       // Token might be invalid or expired
@@ -130,7 +121,6 @@ export function App() {
     setManagerTeam(null);
     setManagerTeamError(null);
     setTodayUpdate(null);
-    setHistory([]);
     setIssues([]);
   };
 
@@ -142,7 +132,7 @@ export function App() {
   }) => {
     setActionLoading(true);
     try {
-      const res = await api.saveTodayUpdate({
+      await api.saveTodayUpdate({
         date: deadlineStatus?.currentDate || new Date().toISOString().split('T')[0],
         ...payload,
       });
@@ -158,9 +148,6 @@ export function App() {
         status: 'draft',
       });
 
-      // Refresh history
-      const historyRes = await api.getUpdateHistory().catch(() => ({ updates: [] }));
-      setHistory(historyRes.updates || []);
     } finally {
       setActionLoading(false);
     }
@@ -228,13 +215,6 @@ export function App() {
                     }
                   />
                 </div>
-              </div>
-            )}
-
-            {/* Tab: Past Updates History */}
-            {activeTab === 'history' && (
-              <div className="max-w-4xl mx-auto">
-                <UpdateHistory updates={history} loading={false} />
               </div>
             )}
 

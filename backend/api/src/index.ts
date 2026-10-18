@@ -677,37 +677,7 @@ export default {
         );
       }
 
-      // 11. Protected Route: Get User's Past Updates History
-      if (url.pathname === '/api/updates/history' && method === 'GET') {
-        const session = await authenticateRequest(request, env);
-        if (!session) {
-          return errorResponse('Unauthorized', 401, null, env, request);
-        }
-
-        const limit = Math.min(30, parseInt(url.searchParams.get('limit') || '15', 10));
-        const { results } = await env.DB.prepare(
-          `SELECT * FROM daily_updates WHERE employee_id = ? ORDER BY date DESC LIMIT ?`
-        )
-          .bind(session.userId, limit)
-          .all<any>();
-
-        const updates = results.map(row => ({
-          id: row.id,
-          date: row.date,
-          todaysTasks: JSON.parse(row.todays_tasks || '[]'),
-          suddenTasks: JSON.parse(row.sudden_tasks || '[]'),
-          blockers: JSON.parse(row.blockers || '[]'),
-          plansGoingForward: JSON.parse(row.plans_going_forward || '[]'),
-          status: row.status,
-          submittedAt: row.submitted_at,
-          lockedAt: row.locked_at,
-          createdAt: row.created_at,
-        }));
-
-        return jsonResponse({ updates }, 200, env, request);
-      }
-
-      // 12. Managers can view only their own team's updates
+      // 11. Managers can view only their own team's updates
       if (url.pathname === '/api/teams' && method === 'GET') {
         const session = await authenticateRequest(request, env);
         if (!session) return errorResponse('Unauthorized', 401, null, env, request);
@@ -777,7 +747,7 @@ export default {
         );
       }
 
-      // 13. Assign / Update Team
+      // 12. Assign / Update Team
       if (url.pathname === '/api/employees/team' && method === 'PUT') {
         const session = await authenticateRequest(request, env);
         if (!session) return errorResponse('Unauthorized', 401, null, env, request);
@@ -792,7 +762,7 @@ export default {
         return jsonResponse({ success: true, message: 'Team assignment updated.' }, 200, env, request);
       }
 
-      // 14. Protected Scheduled Endpoint: Prepare Daily Reports and Lock Updates
+      // 13. Protected Scheduled Endpoint: Prepare Daily Reports and Lock Updates
       // Called by GitHub Actions with Authorization: Bearer <REPORT_API_KEY>
       if (url.pathname === '/api/reports/daily/prepare' && method === 'POST') {
         const authHeader = request.headers.get('Authorization') || '';
@@ -828,7 +798,7 @@ export default {
         );
       }
 
-      // 15. Protected Scheduled Endpoint: Confirm Email Delivery (Idempotent audit record)
+      // 14. Protected Scheduled Endpoint: Confirm Email Delivery (Idempotent audit record)
       if (url.pathname === '/api/reports/daily/confirm' && method === 'POST') {
         const authHeader = request.headers.get('Authorization') || '';
         const token = authHeader.replace(/^Bearer\s+/i, '').trim();
