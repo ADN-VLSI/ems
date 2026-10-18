@@ -139,9 +139,12 @@ export default {
         }
 
         const body: any = await request.json().catch(() => ({}));
-        const username = body.username || 'foez-ahmed';
-        const name = body.name || 'Foez Ahmed';
-        const email = body.email || 'foez.ahmed@adnsemicon.com';
+        const username = typeof body?.username === 'string' ? body.username.trim() : '';
+        const name = typeof body?.name === 'string' ? body.name.trim() : '';
+        const email = typeof body?.email === 'string' ? body.email.trim() : '';
+        if (!username || !name || !email) {
+          return errorResponse('Username, name, and email are required.', 400, null, env, request);
+        }
 
         const employee = await upsertEmployee(env.DB, {
           id: 'dev-' + username,
@@ -704,17 +707,74 @@ export default {
         return jsonResponse({ updates }, 200, env, request);
       }
 
-      // 12. Teams list
+      // 12. Managers can view only their own team's updates
       if (url.pathname === '/api/teams' && method === 'GET') {
-        const { results } = await env.DB.prepare('SELECT * FROM teams ORDER BY manager_name COLLATE NOCASE ASC').all<any>();
-        const teams = results.map((team: any) => ({
-          id: team.id,
-          managerName: team.manager_name,
-          managerEmail: team.manager_email,
-          managerGithubUsername: team.manager_github_username,
-          createdAt: team.created_at,
-        }));
-        return jsonResponse({ teams }, 200, env, request);
+        const session = await authenticateRequest(request, env);
+        if (!session) return errorResponse('Unauthorized', 401, null, env, request);
+
+        const employee = await env.DB.prepare(
+          'SELECT github_username, role FROM employees WHERE id = ?'
+        )
+          .bind(session.userId)
+          .first<{ github_username: string; role: string }>();
+        if (!employee || employee.role !== 'manager') {
+          return errorResponse('Forbidden: Manager access required.', 403, null, env, request);
+        }
+
+        const team = await env.DB.prepare(
+          `SELECT id, name, manager_name, manager_email, manager_github_username, created_at
+           FROM teams
+           WHERE lower(manager_github_username) = lower(?)
+           ORDER BY created_at ASC
+           LIMIT 1`
+        )
+          .bind(employee.github_username)
+          .first<any>();
+        const date = getDeadlineStatus(new Date(), timezone).currentDate;
+
+        if (!team) {
+          return jsonResponse({ team: null, date, members: [] }, 200, env, request);
+        }
+
+        const { results } = await env.DB.prepare(
+          `SELECT e.id AS employee_id, e.name AS employee_name,
+                  e.github_username, du.date, du.status, du.todays_tasks,
+                  du.sudden_tasks, du.blockers, du.plans_going_forward
+           FROM employees e
+           LEFT JOIN daily_updates du
+             ON du.employee_id = e.id AND du.date = ?
+           WHERE e.team_id = ? AND e.approval_status = 'approved'
+           ORDER BY e.name COLLATE NOCASE ASC`
+        )
+          .bind(date, team.id)
+          .all<any>();
+
+        return jsonResponse(
+          {
+            team: {
+              id: team.id,
+              managerName: team.manager_name,
+              managerEmail: team.manager_email,
+              managerGithubUsername: team.manager_github_username,
+              createdAt: team.created_at,
+            },
+            date,
+            members: results.map((member: any) => ({
+              employeeId: member.employee_id,
+              employeeName: member.employee_name,
+              githubUsername: member.github_username,
+              date: member.date,
+              status: member.status,
+              todaysTasks: JSON.parse(member.todays_tasks || '[]'),
+              suddenTasks: JSON.parse(member.sudden_tasks || '[]'),
+              blockers: JSON.parse(member.blockers || '[]'),
+              plansGoingForward: JSON.parse(member.plans_going_forward || '[]'),
+            })),
+          },
+          200,
+          env,
+          request
+        );
       }
 
       // 13. Assign / Update Team

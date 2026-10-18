@@ -142,13 +142,11 @@ At **11:35 PM Asia/Dhaka** (5 minutes after cutoff), the scheduled GitHub Action
 
 Individual copies are sent to each employee's official email when configured, with their GitHub/personal email as fallback. The sole administrator, GitHub account [@foez-ahmed](https://github.com/foez-ahmed), can manage employee names, official emails, reporting managers, and employee/manager roles from the **Manage Users** tab. Selecting a manager automatically creates or assigns the employee to that manager's team; nightly combined team reports are sent to the manager's official email, or personal email when no official email is configured. Admin access cannot be assigned to another account.
 
+The **My Team** view is available only to manager accounts. The API verifies the manager's current role and returns updates only for approved employees assigned to that manager's team.
+
 ### Combined Report Table Structure
 
-| Name            | GitHub ID    | Today's Tasks                      | Sudden Tasks                | Blockers                    | Plans Going Forward          |
-| :-------------- | :----------- | :--------------------------------- | :-------------------------- | :-------------------------- | :--------------------------- |
-| Mohiuddin Reyad | @reyad07     | • Verified floorplan power margins | • Emergency DRC deck review | _None_                      | • Run full tape-out sign-off |
-| Farhan Efty     | @farhan-efty | • Finished RTL synthesis for ALU   | • CTS skew debug            | • Waiting on IO pad library | • Placement optimization     |
-| Foez Ahmed      | @foez-ahmed  | • Built daily report pipeline      | • Resolved CORS preflight   | _None_                      | • Monitor 11:35 PM dispatch  |
+Combined reports contain employee name, GitHub ID, today's tasks, sudden tasks, blockers, and plans going forward.
 
 ### Idempotency Guarantee
 

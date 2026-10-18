@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Employee, DeadlineStatus, DailyUpdate, GitHubIssueItem, Team } from '@shared/types';
+import { Employee, DeadlineStatus, DailyUpdate, GitHubIssueItem, Team, TeamMemberUpdate } from '@shared/types';
 import { api, getStoredToken, clearStoredToken, extractTokenFromUrl } from './api';
 import { Header } from './components/Header';
 import { DeadlineBanner } from './components/DeadlineBanner';
@@ -17,7 +17,12 @@ export function App() {
   const [issues, setIssues] = useState<GitHubIssueItem[]>([]);
   const [issuesNotice, setIssuesNotice] = useState<string | null>(null);
   const [history, setHistory] = useState<DailyUpdate[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
+  const [managerTeam, setManagerTeam] = useState<{
+    team: Team | null;
+    date: string;
+    members: TeamMemberUpdate[];
+  } | null>(null);
+  const [managerTeamError, setManagerTeamError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'update' | 'history' | 'team' | 'admin'>('update');
   const [loading, setLoading] = useState<boolean>(true);
@@ -43,17 +48,10 @@ export function App() {
       const deadline = await api.getDeadlineStatus();
       setDeadlineStatus(deadline);
 
-      // 3. Fetch teams
-      try {
-        const teamsRes = await api.getTeams();
-        setTeams(teamsRes.teams || []);
-      } catch (error) {
-        console.warn('Failed to load teams:', error);
-        setTeams([]);
-      }
-
       if (!token) {
         setUser(null);
+        setManagerTeam(null);
+        setManagerTeamError(null);
         setLoading(false);
         return;
       }
@@ -61,6 +59,19 @@ export function App() {
       // 4. Fetch current user
       const currentUser = await api.getCurrentUser();
       setUser(currentUser);
+
+      if (currentUser.role === 'manager') {
+        setManagerTeamError(null);
+        try {
+          setManagerTeam(await api.getManagerTeam());
+        } catch (error) {
+          setManagerTeam(null);
+          setManagerTeamError(error instanceof Error ? error.message : 'Failed to load team updates.');
+        }
+      } else {
+        setManagerTeam(null);
+        setManagerTeamError(null);
+      }
 
       // 5. Fetch today's update
       try {
@@ -116,6 +127,8 @@ export function App() {
   const handleLogout = () => {
     clearStoredToken();
     setUser(null);
+    setManagerTeam(null);
+    setManagerTeamError(null);
     setTodayUpdate(null);
     setHistory([]);
     setIssues([]);
@@ -226,9 +239,14 @@ export function App() {
             )}
 
             {/* Tab: Team Summary */}
-            {activeTab === 'team' && (
+            {activeTab === 'team' && user.role === 'manager' && (
               <div className="max-w-6xl mx-auto">
-                <TeamOverview teams={teams} userTeamId={user.teamId} />
+                <TeamOverview
+                  team={managerTeam?.team || null}
+                  date={managerTeam?.date || deadlineStatus?.currentDate || ''}
+                  members={managerTeam?.members || []}
+                  error={managerTeamError}
+                />
               </div>
             )}
 

@@ -53,16 +53,18 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
               >
                 Past Updates
               </button>
-              <button
-                onClick={() => setActiveTab('team')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'team'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                Team Summary
-              </button>
+              {user.role === 'manager' && (
+                <button
+                  onClick={() => setActiveTab('team')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'team'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                  }`}
+                >
+                  My Team
+                </button>
+              )}
               {user.role === 'admin' && (
                 <button
                   onClick={() => setActiveTab('admin')}
@@ -151,14 +153,16 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
             >
               Past Updates
             </button>
-            <button
-              onClick={() => setActiveTab('team')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
-                activeTab === 'team' ? 'bg-adn-600 text-white' : 'text-slate-600 bg-slate-100'
-              }`}
-            >
-              Team Summary
-            </button>
+            {user.role === 'manager' && (
+              <button
+                onClick={() => setActiveTab('team')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                  activeTab === 'team' ? 'bg-adn-600 text-white' : 'text-slate-600 bg-slate-100'
+                }`}
+              >
+                My Team
+              </button>
+            )}
             {user.role === 'admin' && (
               <button
                 onClick={() => setActiveTab('admin')}

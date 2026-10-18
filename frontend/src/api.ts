@@ -1,4 +1,4 @@
-import { DeadlineStatus, Employee, GitHubIssueItem, DailyUpdate, Team } from '@shared/types';
+import { DeadlineStatus, Employee, GitHubIssueItem, DailyUpdate, Team, TeamMemberUpdate } from '@shared/types';
 import { getDeadlineStatus } from '@shared/validation';
 
 const TOKEN_KEY = 'ems_auth_token';
@@ -128,8 +128,12 @@ export const api = {
     return request<{ updates: DailyUpdate[] }>(`/api/updates/history?limit=${limit}`);
   },
 
-  async getTeams(): Promise<{ teams: Team[] }> {
-    return request<{ teams: Team[] }>('/api/teams');
+  async getManagerTeam(): Promise<{
+    team: Team | null;
+    date: string;
+    members: TeamMemberUpdate[];
+  }> {
+    return request<{ team: Team | null; date: string; members: TeamMemberUpdate[] }>('/api/teams');
   },
 
   async updateEmployeeTeam(teamId: string): Promise<{ success: boolean }> {

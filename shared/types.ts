@@ -50,6 +50,14 @@ export interface DailyUpdate extends UpdateSections {
   updatedAt?: string;
 }
 
+export interface TeamMemberUpdate extends UpdateSections {
+  employeeId: string;
+  employeeName: string;
+  githubUsername: string;
+  date: string | null;
+  status: UpdateStatus | null;
+}
+
 export interface DeadlineStatus {
   currentTimeIso: string;
   timezone: string; // e.g. "Asia/Dhaka"
