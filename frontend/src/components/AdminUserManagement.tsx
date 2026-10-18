@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Employee } from '@shared/types';
 import { api } from '../api';
 import { AlertCircle, Check, Loader2, Shield, Users } from 'lucide-react';
@@ -9,6 +9,11 @@ export const AdminUserManagement: React.FC = () => {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | Employee['role']>('all');
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'pending' | 'approved'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'githubUsername' | 'role' | 'approvalStatus'>('approvalStatus');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const loadEmployees = useCallback(async () => {
     setLoading(true);
@@ -26,6 +31,33 @@ export const AdminUserManagement: React.FC = () => {
   useEffect(() => {
     loadEmployees();
   }, [loadEmployees]);
+
+  const filteredEmployees = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return employees
+      .filter(employee => {
+        const matchesSearch =
+          !query ||
+          [employee.name, employee.githubUsername, employee.email, employee.officialEmail || '']
+            .some(value => value.toLowerCase().includes(query));
+        const matchesRole = roleFilter === 'all' || employee.role === roleFilter;
+        const matchesApproval =
+          approvalFilter === 'all' || (employee.approvalStatus || 'approved') === approvalFilter;
+        return matchesSearch && matchesRole && matchesApproval;
+      })
+      .sort((left, right) => {
+        const getSortValue = (employee: Employee) => {
+          if (sortBy === 'approvalStatus') {
+            return employee.approvalStatus === 'pending' ? '0-pending' : '1-approved';
+          }
+          return employee[sortBy];
+        };
+        const comparison = getSortValue(left).localeCompare(getSortValue(right), undefined, {
+          sensitivity: 'base',
+        });
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+  }, [employees, search, roleFilter, approvalFilter, sortBy, sortDirection]);
 
   const updateEmployee = (id: string, changes: Partial<Employee>) => {
     setEmployees(current =>
@@ -103,21 +135,92 @@ export const AdminUserManagement: React.FC = () => {
       ) : employees.length === 0 ? (
         <p className="p-6 text-sm text-slate-500">No employee profiles found.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-xs">
-            <thead className="bg-slate-50 text-slate-600 uppercase tracking-wide">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Employee</th>
-                <th className="px-4 py-3 font-semibold">Personal email (fallback)</th>
-                <th className="px-4 py-3 font-semibold">Official email</th>
-                <th className="px-4 py-3 font-semibold">Manager</th>
-                <th className="px-4 py-3 font-semibold">Role</th>
-                <th className="px-4 py-3 font-semibold">Access</th>
-                <th className="px-4 py-3 font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {employees.map(employee => {
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-4 sm:grid-cols-2 xl:grid-cols-5">
+            <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-600">
+              Search employees
+              <input
+                type="search"
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+                placeholder="Name, username, or email"
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs font-normal text-slate-800"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-600">
+              Role
+              <select
+                value={roleFilter}
+                onChange={event => setRoleFilter(event.target.value as typeof roleFilter)}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs font-normal text-slate-800"
+              >
+                <option value="all">All roles</option>
+                <option value="employee">Employee</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-600">
+              Access
+              <select
+                value={approvalFilter}
+                onChange={event => setApprovalFilter(event.target.value as typeof approvalFilter)}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs font-normal text-slate-800"
+              >
+                <option value="all">All access states</option>
+                <option value="pending">Pending approval</option>
+                <option value="approved">Approved</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-600">
+              Sort by
+              <select
+                value={sortBy}
+                onChange={event => setSortBy(event.target.value as typeof sortBy)}
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-xs font-normal text-slate-800"
+              >
+                <option value="approvalStatus">Access state</option>
+                <option value="name">Name</option>
+                <option value="githubUsername">GitHub username</option>
+                <option value="role">Role</option>
+              </select>
+            </label>
+            <div className="flex flex-col gap-1 text-[11px] font-semibold text-slate-600">
+              Sort order
+              <button
+                type="button"
+                onClick={() => setSortDirection(current => current === 'asc' ? 'desc' : 'asc')}
+                aria-label="Toggle sort order"
+                className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-left text-xs font-normal text-slate-800 hover:bg-slate-100"
+              >
+                {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+              </button>
+            </div>
+          </div>
+          <p aria-live="polite" className="px-5 text-[11px] text-slate-500">
+            Showing {filteredEmployees.length} of {employees.length} employees
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-xs">
+              <thead className="bg-slate-50 text-slate-600 uppercase tracking-wide">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Employee</th>
+                  <th className="px-4 py-3 font-semibold">Personal email (fallback)</th>
+                  <th className="px-4 py-3 font-semibold">Official email</th>
+                  <th className="px-4 py-3 font-semibold">Manager</th>
+                  <th className="px-4 py-3 font-semibold">Role</th>
+                  <th className="px-4 py-3 font-semibold">Access</th>
+                  <th className="px-4 py-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                      No employees match these filters.
+                    </td>
+                  </tr>
+                ) : filteredEmployees.map(employee => {
                 const isAdmin = employee.role === 'admin';
                 return (
                   <tr key={employee.id} className="align-top">
@@ -221,8 +324,9 @@ export const AdminUserManagement: React.FC = () => {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-500">
