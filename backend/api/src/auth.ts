@@ -1,7 +1,7 @@
 import { Env, UserSessionPayload } from './types';
 import { Employee } from '../../../shared/types';
 
-export const ADMIN_GITHUB_USERNAME = 'feoz-ahmed';
+export const ADMIN_GITHUB_USERNAME = 'foez-ahmed';
 
 /**
  * Base64URL encode/decode helpers using standard Web API
