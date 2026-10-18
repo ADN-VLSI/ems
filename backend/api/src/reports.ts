@@ -8,6 +8,7 @@ interface UpdateRow {
   name: string;
   github_username: string;
   email: string;
+  official_email: string | null;
   team_id: string | null;
   team_name: string | null;
   manager_name: string | null;
@@ -160,7 +161,7 @@ export async function prepareDailyReports(
       `SELECT 
          u.id, u.employee_id, u.date, u.todays_tasks, u.sudden_tasks, u.blockers, u.plans_going_forward,
          u.status, u.submitted_at, u.locked_at,
-         e.name, e.github_username, e.email,
+         e.name, e.github_username, e.email, e.official_email,
          t.id as team_id, t.name as team_name, t.manager_name, t.manager_email
        FROM daily_updates u
        JOIN employees e ON u.employee_id = e.id
@@ -187,7 +188,8 @@ export async function prepareDailyReports(
 
   // 5. Generate Individual Employee Update Emails
   for (const row of rows) {
-    const key = `employee_individual:${row.email.toLowerCase()}`;
+    const recipientEmail = row.official_email?.trim() || row.email;
+    const key = `employee_individual:${recipientEmail.toLowerCase()}`;
     if (deliveredSet.has(key)) {
       alreadySentCount++;
       continue;
@@ -247,7 +249,7 @@ ${renderTextBullets(plans)}
     emailsToSend.push({
       id: `emp-${row.employee_id}-${date}`,
       type: 'employee_individual',
-      to: row.email,
+      to: recipientEmail,
       subject: `[EMS] Your Daily Work Update - ${date}`,
       htmlContent,
       textContent,

@@ -140,7 +140,7 @@ At **11:35 PM Asia/Dhaka** (5 minutes after cutoff), the scheduled GitHub Action
 
 | Name            | GitHub ID    | Today's Tasks                      | Sudden Tasks                | Blockers                    | Plans Going Forward          |
 | :-------------- | :----------- | :--------------------------------- | :-------------------------- | :-------------------------- | :--------------------------- |
-| Mohiuddin Reyad | @m-reyad     | • Verified floorplan power margins | • Emergency DRC deck review | _None_                      | • Run full tape-out sign-off |
+| Mohiuddin Reyad | @reyad07     | • Verified floorplan power margins | • Emergency DRC deck review | _None_                      | • Run full tape-out sign-off |
 | Farhan Efty     | @farhan-efty | • Finished RTL synthesis for ALU   | • CTS skew debug            | • Waiting on IO pad library | • Placement optimization     |
 | Foez Ahmed      | @foez-ahmed  | • Built daily report pipeline      | • Resolved CORS preflight   | _None_                      | • Monitor 11:35 PM dispatch  |
 

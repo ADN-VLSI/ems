@@ -4,8 +4,8 @@ import { LogOut, Users, Shield, Cpu, Github, ExternalLink } from 'lucide-react';
 
 interface HeaderProps {
   user: Employee | null;
-  activeTab: 'update' | 'history' | 'team' | 'quota';
-  setActiveTab: (tab: 'update' | 'history' | 'team' | 'quota') => void;
+  activeTab: 'update' | 'history' | 'team' | 'quota' | 'admin';
+  setActiveTab: (tab: 'update' | 'history' | 'team' | 'quota' | 'admin') => void;
   onLogout: () => void;
 }
 
@@ -73,6 +73,18 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
               >
                 Free-Tier Specs
               </button>
+              {user.role === 'admin' && (
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    activeTab === 'admin'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                  }`}
+                >
+                  Manage Users
+                </button>
+              )}
             </nav>
           )}
 
@@ -83,9 +95,9 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
                 <div className="hidden sm:flex flex-col text-right">
                   <div className="flex items-center justify-end gap-1.5">
                     <span className="text-xs font-bold text-slate-800">{user.name}</span>
-                    {user.role === 'manager' && (
+                    {user.role !== 'employee' && (
                       <span className="text-[10px] font-semibold bg-indigo-100 text-indigo-700 px-1 rounded">
-                        Manager
+                        {user.role === 'admin' ? 'Admin' : 'Manager'}
                       </span>
                     )}
                   </div>
@@ -165,6 +177,16 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
             >
               Free-Tier Specs
             </button>
+            {user.role === 'admin' && (
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
+                  activeTab === 'admin' ? 'bg-adn-600 text-white' : 'text-slate-600 bg-slate-100'
+                }`}
+              >
+                Manage Users
+              </button>
+            )}
           </div>
         )}
       </div>

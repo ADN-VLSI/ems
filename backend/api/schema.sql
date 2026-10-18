@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS employees (
   github_username TEXT NOT NULL,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
+  official_email TEXT,
   avatar_url TEXT,
   team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
   role TEXT NOT NULL DEFAULT 'employee', -- 'employee', 'manager', 'admin'
@@ -71,6 +72,6 @@ CREATE INDEX IF NOT EXISTS idx_reports_date_type ON report_deliveries(date, repo
 -- Initial seed teams if needed
 INSERT OR IGNORE INTO teams (id, name, manager_name, manager_email, manager_github_username)
 VALUES 
-  ('team-core', 'Core Engineering', 'Mohiuddin Reyad', 'mohiuddin.reyad@adnsemicon.com', 'm-reyad'),
+  ('team-core', 'Core Engineering', 'Mohiuddin Reyad', 'mohiuddin.reyad@adnsemicon.com', 'reyad07'),
   ('team-vlsi', 'VLSI Design', 'Farhan Efty', 'farhan.efty@adnsemicon.com', 'farhan-efty'),
   ('team-software', 'Software & Tools', 'Foez Ahmed', 'foez.ahmed@adnsemicon.com', 'foez-ahmed');

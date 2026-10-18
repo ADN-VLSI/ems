@@ -1,6 +1,8 @@
 import { Env, UserSessionPayload } from './types';
 import { Employee } from '../../../shared/types';
 
+export const ADMIN_GITHUB_USERNAME = 'feoz-ahmed';
+
 /**
  * Base64URL encode/decode helpers using standard Web API
  */
@@ -218,14 +220,24 @@ export async function upsertEmployee(db: D1Database, githubUser: {
     .first<any>();
 
   const now = new Date().toISOString();
+  const normalizedLogin = githubUser.login.toLowerCase();
+  const role: Employee['role'] =
+    normalizedLogin === ADMIN_GITHUB_USERNAME
+      ? 'admin'
+      : existing?.role === 'manager' ||
+          ['mohiuddin.reyad@adnsemicon.com', 'farhan.efty@adnsemicon.com'].includes(
+            githubUser.email.toLowerCase()
+          )
+        ? 'manager'
+        : 'employee';
 
   if (existing) {
     // Update existing profile details
     await db
       .prepare(
-        'UPDATE employees SET github_username = ?, name = ?, email = ?, avatar_url = ?, updated_at = ? WHERE id = ?'
+        'UPDATE employees SET github_username = ?, name = ?, email = ?, role = ?, avatar_url = ?, updated_at = ? WHERE id = ?'
       )
-      .bind(githubUser.login, githubUser.name, githubUser.email, githubUser.avatar_url, now, existing.id)
+      .bind(githubUser.login, githubUser.name, githubUser.email, role, githubUser.avatar_url, now, existing.id)
       .run();
 
     return {
@@ -234,10 +246,11 @@ export async function upsertEmployee(db: D1Database, githubUser: {
       githubUsername: githubUser.login,
       name: githubUser.name,
       email: githubUser.email,
+      officialEmail: existing.official_email || null,
       avatarUrl: githubUser.avatar_url,
       teamId: existing.team_id,
       teamName: existing.team_name,
-      role: existing.role || 'employee',
+      role,
       createdAt: existing.created_at,
       updatedAt: now,
     };
@@ -249,16 +262,6 @@ export async function upsertEmployee(db: D1Database, githubUser: {
   const defaultTeam = await db.prepare('SELECT id, name FROM teams LIMIT 1').first<any>();
   const teamId = defaultTeam ? defaultTeam.id : null;
   const teamName = defaultTeam ? defaultTeam.name : null;
-
-  // If specific emails correspond to managers or admin
-  let role: 'employee' | 'manager' | 'admin' = 'employee';
-  if (
-    githubUser.email === 'foez.ahmed@adnsemicon.com' ||
-    githubUser.email === 'mohiuddin.reyad@adnsemicon.com' ||
-    githubUser.email === 'farhan.efty@adnsemicon.com'
-  ) {
-    role = 'manager';
-  }
 
   await db
     .prepare(
@@ -285,6 +288,7 @@ export async function upsertEmployee(db: D1Database, githubUser: {
     githubUsername: githubUser.login,
     name: githubUser.name,
     email: githubUser.email,
+    officialEmail: null,
     avatarUrl: githubUser.avatar_url,
     teamId,
     teamName,

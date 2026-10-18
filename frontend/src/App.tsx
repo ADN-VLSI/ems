@@ -9,6 +9,7 @@ import { UpdateHistory } from './components/UpdateHistory';
 import { TeamOverview } from './components/TeamOverview';
 import { QuotaNotice } from './components/QuotaNotice';
 import { LoginView } from './components/LoginView';
+import { AdminUserManagement } from './components/AdminUserManagement';
 
 export function App() {
   const [user, setUser] = useState<Employee | null>(null);
@@ -19,7 +20,7 @@ export function App() {
   const [history, setHistory] = useState<DailyUpdate[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'update' | 'history' | 'team' | 'quota'>('update');
+  const [activeTab, setActiveTab] = useState<'update' | 'history' | 'team' | 'quota' | 'admin'>('update');
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [issuesLoading, setIssuesLoading] = useState<boolean>(false);
@@ -242,6 +243,10 @@ export function App() {
               <div className="max-w-4xl mx-auto">
                 <QuotaNotice />
               </div>
+            )}
+
+            {activeTab === 'admin' && user.role === 'admin' && (
+              <AdminUserManagement teams={teams} />
             )}
           </>
         )}

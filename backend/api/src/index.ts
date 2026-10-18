@@ -6,6 +6,7 @@ import {
   exchangeGitHubCode,
   fetchGitHubUser,
   upsertEmployee,
+  ADMIN_GITHUB_USERNAME,
 } from './auth';
 import { fetchAssignedIssues } from './githubApp';
 import { prepareDailyReports, recordReportDelivery } from './reports';
@@ -14,6 +15,17 @@ import {
   validateUpdateSections,
   DEFAULT_APP_TIMEZONE,
 } from '../../../shared/validation';
+
+async function isAdminSession(session: UserSessionPayload, env: Env): Promise<boolean> {
+  if (session.githubUsername.toLowerCase() !== ADMIN_GITHUB_USERNAME) return false;
+  const employee = await env.DB.prepare('SELECT github_username, role FROM employees WHERE id = ?')
+    .bind(session.userId)
+    .first<{ github_username: string; role: string }>();
+  return (
+    employee?.github_username.toLowerCase() === ADMIN_GITHUB_USERNAME &&
+    employee.role === 'admin'
+  );
+}
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -177,12 +189,154 @@ export default {
             githubUsername: emp.github_username,
             name: emp.name,
             email: emp.email,
+            officialEmail: emp.official_email || null,
             avatarUrl: emp.avatar_url,
             teamId: emp.team_id,
             teamName: emp.team_name,
             role: emp.role,
             managerName: emp.manager_name,
             managerEmail: emp.manager_email,
+          },
+          200,
+          env,
+          request
+        );
+      }
+
+      // Admin-only employee profile management
+      if (url.pathname === '/api/admin/employees' && method === 'GET') {
+        const session = await authenticateRequest(request, env);
+        if (!session) return errorResponse('Unauthorized', 401, null, env, request);
+        if (!(await isAdminSession(session, env))) {
+          return errorResponse('Forbidden: Administrator access required.', 403, null, env, request);
+        }
+
+        const { results } = await env.DB.prepare(
+          `SELECT e.*, t.name AS team_name
+           FROM employees e
+           LEFT JOIN teams t ON e.team_id = t.id
+           ORDER BY e.name COLLATE NOCASE ASC`
+        ).all<any>();
+
+        return jsonResponse(
+          {
+            employees: results.map((emp: any) => ({
+              id: emp.id,
+              githubId: emp.github_id,
+              githubUsername: emp.github_username,
+              name: emp.name,
+              email: emp.email,
+              officialEmail: emp.official_email || null,
+              avatarUrl: emp.avatar_url,
+              teamId: emp.team_id,
+              teamName: emp.team_name,
+              role: emp.role,
+              createdAt: emp.created_at,
+              updatedAt: emp.updated_at,
+            })),
+          },
+          200,
+          env,
+          request
+        );
+      }
+
+      if (url.pathname.startsWith('/api/admin/employees/') && method === 'PUT') {
+        const session = await authenticateRequest(request, env);
+        if (!session) return errorResponse('Unauthorized', 401, null, env, request);
+        if (!(await isAdminSession(session, env))) {
+          return errorResponse('Forbidden: Administrator access required.', 403, null, env, request);
+        }
+
+        const employeeId = url.pathname.slice('/api/admin/employees/'.length);
+        if (!employeeId || employeeId.includes('/')) {
+          return errorResponse('Invalid employee profile path.', 400, null, env, request);
+        }
+
+        let body: any;
+        try {
+          body = await request.json();
+        } catch {
+          return errorResponse('Invalid JSON request body.', 400, null, env, request);
+        }
+
+        const name = typeof body.name === 'string' ? body.name.trim() : '';
+        const officialEmail =
+          body.officialEmail === null || body.officialEmail === ''
+            ? null
+            : typeof body.officialEmail === 'string'
+              ? body.officialEmail.trim()
+              : undefined;
+        const teamId = body.teamId === '' ? null : body.teamId;
+        const requestedRole = body.role;
+
+        if (!name || name.length > 120) {
+          return errorResponse('Name is required and must be at most 120 characters.', 400, null, env, request);
+        }
+        if (
+          officialEmail === undefined ||
+          (officialEmail !== null &&
+            (officialEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(officialEmail)))
+        ) {
+          return errorResponse('Official email must be a valid email address or empty.', 400, null, env, request);
+        }
+        if (teamId !== null && typeof teamId !== 'string') {
+          return errorResponse('Team assignment must be a team ID or empty.', 400, null, env, request);
+        }
+        if (!['employee', 'manager', 'admin'].includes(requestedRole)) {
+          return errorResponse('Role must be employee or manager.', 400, null, env, request);
+        }
+
+        const target = await env.DB.prepare('SELECT github_username FROM employees WHERE id = ?')
+          .bind(employeeId)
+          .first<{ github_username: string }>();
+        if (!target) return errorResponse('Employee profile not found.', 404, null, env, request);
+
+        const isFixedAdmin = target.github_username.toLowerCase() === ADMIN_GITHUB_USERNAME;
+        if (requestedRole === 'admin' && !isFixedAdmin) {
+          return errorResponse('Only the designated GitHub account can be an administrator.', 400, null, env, request);
+        }
+        const role = isFixedAdmin ? 'admin' : requestedRole;
+
+        if (teamId !== null) {
+          const team = await env.DB.prepare('SELECT id FROM teams WHERE id = ?').bind(teamId).first();
+          if (!team) return errorResponse('Selected team does not exist.', 400, null, env, request);
+        }
+
+        await env.DB.prepare(
+          `UPDATE employees
+           SET name = ?, official_email = ?, team_id = ?, role = ?, updated_at = ?
+           WHERE id = ?`
+        )
+          .bind(name, officialEmail, teamId, role, new Date().toISOString(), employeeId)
+          .run();
+
+        const updated = await env.DB.prepare(
+          `SELECT e.*, t.name AS team_name
+           FROM employees e
+           LEFT JOIN teams t ON e.team_id = t.id
+           WHERE e.id = ?`
+        )
+          .bind(employeeId)
+          .first<any>();
+
+        return jsonResponse(
+          {
+            success: true,
+            employee: {
+              id: updated.id,
+              githubId: updated.github_id,
+              githubUsername: updated.github_username,
+              name: updated.name,
+              email: updated.email,
+              officialEmail: updated.official_email || null,
+              avatarUrl: updated.avatar_url,
+              teamId: updated.team_id,
+              teamName: updated.team_name,
+              role: updated.role,
+              createdAt: updated.created_at,
+              updatedAt: updated.updated_at,
+            },
           },
           200,
           env,

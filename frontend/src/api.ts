@@ -139,4 +139,24 @@ export const api = {
       body: JSON.stringify({ teamId }),
     });
   },
+  async getAdminEmployees(): Promise<{ employees: Employee[] }> {
+    return request<{ employees: Employee[] }>('/api/admin/employees');
+  },
+
+  async updateAdminEmployee(
+    employee: Pick<Employee, 'id' | 'name' | 'officialEmail' | 'teamId' | 'role'>
+  ): Promise<{ success: boolean; employee: Employee }> {
+    return request<{ success: boolean; employee: Employee }>(
+      `/api/admin/employees/${encodeURIComponent(employee.id)}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: employee.name,
+          officialEmail: employee.officialEmail || null,
+          teamId: employee.teamId || null,
+          role: employee.role,
+        }),
+      }
+    );
+  },
 };

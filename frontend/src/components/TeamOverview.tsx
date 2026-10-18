@@ -14,7 +14,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ teams, userTeamId })
   const sampleUpdates = [
     {
       name: 'Mohiuddin Reyad',
-      githubUsername: 'm-reyad',
+      githubUsername: 'reyad07',
       team: 'Core Engineering',
       todaysTasks: [
         'Verified floorplan power density margins for 12nm test chip',
