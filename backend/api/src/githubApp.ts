@@ -158,15 +158,19 @@ export async function fetchAssignedIssues(
   const token = await getInstallationAccessToken(env);
 
   const query = `
-    query GetAssignedIssues($searchQuery: String!) {
+    query GetAssignedIssues($searchQuery: String!, $cursor: String) {
       rateLimit {
         limit
         cost
         remaining
         resetAt
       }
-      search(query: $searchQuery, type: ISSUE, first: 25) {
+      search(query: $searchQuery, type: ISSUE, first: 100, after: $cursor) {
         issueCount
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           ... on Issue {
             id
@@ -175,6 +179,11 @@ export async function fetchAssignedIssues(
             url
             state
             updatedAt
+            assignees(first: 100) {
+              nodes {
+                login
+              }
+            }
             repository {
               nameWithOwner
               url
@@ -207,65 +216,77 @@ export async function fetchAssignedIssues(
     }
   `;
 
-  // Search open issues assigned to user
-  const searchQuery = `assignee:${githubUsername} is:open is:issue`;
+  const searchQuery = 'org:ADN-VLSI is:open is:issue archived:false sort:updated-desc';
+  const rawIssues: any[] = [];
+  let cursor: string | null = null;
+  let rateLimitRemaining: number | undefined;
 
-  const response = await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'EMS-Employee-Update-System',
-    },
-    body: JSON.stringify({
-      query,
-      variables: { searchQuery },
-    }),
-  });
+  do {
+    const response = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'EMS-Employee-Update-System',
+      },
+      body: JSON.stringify({
+        query,
+        variables: { searchQuery, cursor },
+      }),
+    });
 
-  if (!response.ok) {
-    if (response.status === 403 || response.status === 429) {
-      throw new Error('GitHub API rate limit reached. Please try again later.');
+    if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error('GitHub API rate limit reached. Please try again later.');
+      }
+      throw new Error(`GitHub GraphQL API error (${response.status}): ${response.statusText}`);
     }
-    throw new Error(`GitHub GraphQL API error (${response.status}): ${response.statusText}`);
-  }
 
-  const result: any = await response.json();
-  if (result.errors && result.errors.length > 0) {
-    throw new Error(result.errors.map((e: any) => e.message).join(', '));
-  }
+    const result: any = await response.json();
+    if (result.errors && result.errors.length > 0) {
+      throw new Error(result.errors.map((e: any) => e.message).join(', '));
+    }
 
-  const rawIssues = result.data?.search?.nodes || [];
-  const rateLimitRemaining = result.data?.rateLimit?.remaining;
+    const search = result.data?.search;
+    rawIssues.push(...(search?.nodes || []));
+    rateLimitRemaining = result.data?.rateLimit?.remaining;
+    cursor = search?.pageInfo?.hasNextPage ? search.pageInfo.endCursor : null;
+  } while (cursor);
 
-  const issues: GitHubIssueItem[] = rawIssues.map((node: any) => {
-    const projects: GitHubProjectLink[] = [];
-    if (node.projectItems?.nodes) {
-      for (const item of node.projectItems.nodes) {
-        if (item.project) {
-          projects.push({
-            id: item.project.id,
-            name: item.project.title,
-            url: item.project.url,
-            status: item.fieldValueByName?.name || 'Assigned',
-          });
+  const issues: GitHubIssueItem[] = rawIssues
+    .filter((node: any) =>
+      node.assignees?.nodes?.some(
+        (assignee: any) => assignee.login.toLowerCase() === githubUsername.toLowerCase()
+      )
+    )
+    .map((node: any) => {
+      const projects: GitHubProjectLink[] = [];
+      if (node.projectItems?.nodes) {
+        for (const item of node.projectItems.nodes) {
+          if (item.project) {
+            projects.push({
+              id: item.project.id,
+              name: item.project.title,
+              url: item.project.url,
+              status: item.fieldValueByName?.name || 'Assigned',
+            });
+          }
         }
       }
-    }
 
-    return {
-      id: node.id,
-      number: node.number,
-      title: node.title,
-      url: node.url,
-      state: node.state,
-      repository: node.repository?.nameWithOwner || '',
-      repositoryUrl: node.repository?.url || '',
-      labels: (node.labels?.nodes || []).map((l: any) => ({ name: l.name, color: l.color })),
-      projects,
-      updatedAt: node.updatedAt,
-    };
-  });
+      return {
+        id: node.id,
+        number: node.number,
+        title: node.title,
+        url: node.url,
+        state: node.state,
+        repository: node.repository?.nameWithOwner || '',
+        repositoryUrl: node.repository?.url || '',
+        labels: (node.labels?.nodes || []).map((l: any) => ({ name: l.name, color: l.color })),
+        projects,
+        updatedAt: node.updatedAt,
+      };
+    });
 
   return {
     issues,
