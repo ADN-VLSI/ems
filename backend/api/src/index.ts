@@ -14,6 +14,7 @@ import {
   getDeadlineStatus,
   validateUpdateSections,
   DEFAULT_APP_TIMEZONE,
+  COMPANY_REPORT_TO,
 } from '../../../shared/validation';
 
 async function isAdminSession(session: UserSessionPayload, env: Env): Promise<boolean> {
@@ -577,6 +578,45 @@ export default {
               now
             )
             .run();
+        }
+
+        if (targetDate === deadlineStatus.currentDate) {
+          const deliveryProfile = await env.DB.prepare(
+            `SELECT COALESCE(NULLIF(e.official_email, ''), e.email) AS employee_email, t.manager_email
+             FROM employees e
+             LEFT JOIN teams t ON e.team_id = t.id
+             WHERE e.id = ?`
+          )
+            .bind(session.userId)
+            .first<{ employee_email: string; manager_email: string | null }>();
+
+          if (deliveryProfile) {
+            const recipients: Array<{
+              type: 'employee_individual' | 'team_manager' | 'company_wide';
+              email: string;
+            }> = [
+              { type: 'employee_individual', email: deliveryProfile.employee_email },
+              { type: 'company_wide', email: env.COMPANY_REPORT_TO || COMPANY_REPORT_TO },
+            ];
+            if (deliveryProfile.manager_email) {
+              recipients.push({ type: 'team_manager', email: deliveryProfile.manager_email });
+            }
+
+            for (const recipient of recipients) {
+              await env.DB.prepare(
+                `UPDATE report_deliveries
+                 SET status = 'failed', message_id = NULL, error_message = ?, sent_at = NULL
+                 WHERE date = ? AND report_type = ? AND lower(recipient_email) = lower(?) AND status = 'sent'`
+              )
+                .bind(
+                  'Update changed after an early report delivery; it will be included in the scheduled report.',
+                  targetDate,
+                  recipient.type,
+                  recipient.email
+                )
+                .run();
+            }
+          }
         }
 
         return jsonResponse(

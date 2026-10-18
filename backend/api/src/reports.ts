@@ -133,9 +133,18 @@ export async function prepareDailyReports(
 ): Promise<DailyReportBatch> {
   // 1. Verify deadline cutoff has passed
   const deadlineStatus = getDeadlineStatus(new Date(), timezone);
+  const canBypassCutoffForTesting = bypassCutoff && env.DEV_SIGN_IN_ENABLED === 'true';
 
-  // If asking for today's date and cutoff hasn't passed yet
-  if (!bypassCutoff && date === deadlineStatus.currentDate && !deadlineStatus.isLocked) {
+  if (date > deadlineStatus.currentDate) {
+    throw new Error('Cannot prepare daily reports for a future date.');
+  }
+
+  // Production must never lock or send today's reports before the cutoff.
+  if (
+    date === deadlineStatus.currentDate &&
+    !deadlineStatus.isLocked &&
+    !canBypassCutoffForTesting
+  ) {
     throw new Error(
       `Cannot send daily reports before 11:30 PM cutoff. Time remaining: ${Math.floor(
         deadlineStatus.remainingSeconds / 60

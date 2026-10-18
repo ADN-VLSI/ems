@@ -150,12 +150,9 @@ export async function fetchAssignedIssues(
   githubUsername: string,
   env: Env
 ): Promise<{ issues: GitHubIssueItem[]; rateLimitRemaining?: number; notice?: string }> {
-  // Do not show example issues when the live GitHub integration is unavailable.
+  // The GitHub link remains available when issue cards cannot be synchronized.
   if (!env.GITHUB_APP_ID || !env.GITHUB_APP_PRIVATE_KEY || !env.GITHUB_APP_INSTALLATION_ID) {
-    return {
-      issues: [],
-      notice: 'Live issue sync is not configured. Use View on GitHub to see your actual assigned open issues.',
-    };
+    return { issues: [] };
   }
 
   const token = await getInstallationAccessToken(env);

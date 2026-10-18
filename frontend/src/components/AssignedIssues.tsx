@@ -10,6 +10,9 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+const ASSIGNED_ISSUES_URL =
+  'https://github.com/issues/assigned?q=is%3Aissue+state%3Aopen+archived%3Afalse+assignee%3A%40me+sort%3Aupdated-desc+org%3AADN-VLSI';
+
 interface AssignedIssuesProps {
   issues: GitHubIssueItem[];
   loading: boolean;
@@ -47,7 +50,7 @@ export const AssignedIssues: React.FC<AssignedIssuesProps> = ({
 
         <div className="flex items-center gap-1">
           <a
-            href="https://github.com/issues/assigned?q=is%3Aissue+state%3Aopen+archived%3Afalse+assignee%3A%40me+sort%3Aupdated-desc+org%3AADN-VLSI"
+            href={ASSIGNED_ISSUES_URL}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-adn-700 hover:bg-adn-50"
@@ -95,7 +98,16 @@ export const AssignedIssues: React.FC<AssignedIssuesProps> = ({
       {!loading && !error && !notice && issues.length === 0 && (
         <div className="text-center py-8 text-slate-400 space-y-2">
           <CheckCircle2 className="w-8 h-8 mx-auto text-slate-300" />
-          <p className="text-xs font-medium">No open issues currently assigned to your GitHub account.</p>
+          <p className="text-xs font-medium">Open GitHub to browse your assigned issues.</p>
+          <a
+            href={ASSIGNED_ISSUES_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-adn-700 hover:underline"
+          >
+            View assigned issues
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       )}
 
