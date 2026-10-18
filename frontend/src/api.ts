@@ -142,6 +142,13 @@ export const api = {
     return request<{ employees: Employee[] }>('/api/admin/employees');
   },
 
+  async approveAdminEmployee(employeeId: string): Promise<{ success: boolean; approvalStatus: 'approved' }> {
+    return request<{ success: boolean; approvalStatus: 'approved' }>(
+      `/api/admin/employees/${encodeURIComponent(employeeId)}/approve`,
+      { method: 'POST' }
+    );
+  },
+
   async updateAdminEmployee(
     employee: Pick<Employee, 'id' | 'name' | 'officialEmail' | 'managerGithubUsername' | 'role'>
   ): Promise<{ success: boolean; employee: Employee }> {

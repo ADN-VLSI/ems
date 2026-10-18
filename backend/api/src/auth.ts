@@ -109,7 +109,13 @@ export async function authenticateRequest(request: Request, env: Env): Promise<U
     return null;
   }
   const token = authHeader.substring(7).trim();
-  return verifyJwt(token, env.JWT_SECRET);
+  const session = await verifyJwt(token, env.JWT_SECRET);
+  if (!session) return null;
+
+  const employee = await env.DB.prepare('SELECT approval_status FROM employees WHERE id = ?')
+    .bind(session.userId)
+    .first<{ approval_status: string }>();
+  return employee?.approval_status === 'approved' ? session : null;
 }
 
 /**
@@ -230,14 +236,16 @@ export async function upsertEmployee(db: D1Database, githubUser: {
           )
         ? 'manager'
         : 'employee';
+  const approvalStatus: Employee['approvalStatus'] =
+    normalizedLogin === ADMIN_GITHUB_USERNAME ? 'approved' : existing?.approval_status || 'pending';
 
   if (existing) {
     // Update existing profile details
     await db
       .prepare(
-        'UPDATE employees SET github_username = ?, name = ?, email = ?, role = ?, avatar_url = ?, updated_at = ? WHERE id = ?'
+        'UPDATE employees SET github_username = ?, name = ?, email = ?, role = ?, approval_status = ?, avatar_url = ?, updated_at = ? WHERE id = ?'
       )
-      .bind(githubUser.login, githubUser.name, githubUser.email, role, githubUser.avatar_url, now, existing.id)
+      .bind(githubUser.login, githubUser.name, githubUser.email, role, approvalStatus, githubUser.avatar_url, now, existing.id)
       .run();
 
     return {
@@ -251,6 +259,7 @@ export async function upsertEmployee(db: D1Database, githubUser: {
       teamId: existing.team_id,
       managerName: existing.manager_name,
       role,
+      approvalStatus,
       createdAt: existing.created_at,
       updatedAt: now,
     };
@@ -263,8 +272,8 @@ export async function upsertEmployee(db: D1Database, githubUser: {
 
   await db
     .prepare(
-      `INSERT INTO employees (id, github_id, github_username, name, email, avatar_url, team_id, role, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO employees (id, github_id, github_username, name, email, avatar_url, team_id, role, approval_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       employeeId,
@@ -275,6 +284,7 @@ export async function upsertEmployee(db: D1Database, githubUser: {
       githubUser.avatar_url,
       teamId,
       role,
+      approvalStatus,
       now,
       now
     )
@@ -291,6 +301,7 @@ export async function upsertEmployee(db: D1Database, githubUser: {
     teamId,
     managerName,
     role,
+    approvalStatus,
     createdAt: now,
     updatedAt: now,
   };

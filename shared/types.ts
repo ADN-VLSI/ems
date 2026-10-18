@@ -14,6 +14,7 @@ export interface Employee {
   managerName?: string | null;
   managerGithubUsername?: string | null;
   role: 'employee' | 'manager' | 'admin';
+  approvalStatus?: 'pending' | 'approved';
   createdAt?: string;
   updatedAt?: string;
 }

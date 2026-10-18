@@ -101,6 +101,13 @@ export default {
         const accessToken = await exchangeGitHubCode(code, env);
         const githubUser = await fetchGitHubUser(accessToken);
         const employee = await upsertEmployee(env.DB, githubUser);
+        const frontendUrl = env.FRONTEND_URL || 'http://localhost:5173';
+        const redirectTarget = new URL(frontendUrl);
+
+        if (employee.approvalStatus !== 'approved') {
+          redirectTarget.searchParams.set('approval', 'pending');
+          return Response.redirect(redirectTarget.toString(), 302);
+        }
 
         // Create JWT valid for 7 days
         const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
@@ -117,8 +124,6 @@ export default {
         const token = await signJwt(sessionPayload, env.JWT_SECRET);
 
         // Redirect back to frontend with the auth token
-        const frontendUrl = env.FRONTEND_URL || 'http://localhost:5173';
-        const redirectTarget = new URL(frontendUrl);
         redirectTarget.hash = `token=${encodeURIComponent(token)}`;
 
         return Response.redirect(redirectTarget.toString(), 302);
@@ -145,6 +150,9 @@ export default {
           email,
           avatar_url: `https://github.com/${username}.png`,
         });
+        if (employee.approvalStatus !== 'approved') {
+          return errorResponse('Your account is awaiting administrator approval.', 403, null, env, request);
+        }
 
         const exp = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
         const token = await signJwt(
@@ -195,6 +203,7 @@ export default {
             teamId: emp.team_id,
             managerName: emp.manager_name,
             role: emp.role,
+            approvalStatus: emp.approval_status,
             managerEmail: emp.manager_email,
           },
           200,
@@ -215,7 +224,8 @@ export default {
           `SELECT e.*, t.manager_github_username
            FROM employees e
            LEFT JOIN teams t ON e.team_id = t.id
-           ORDER BY e.name COLLATE NOCASE ASC`
+           ORDER BY CASE WHEN e.approval_status = 'pending' THEN 0 ELSE 1 END,
+                    e.name COLLATE NOCASE ASC`
         ).all<any>();
 
         return jsonResponse(
@@ -231,6 +241,7 @@ export default {
               teamId: emp.team_id,
               managerGithubUsername: emp.manager_github_username,
               role: emp.role,
+              approvalStatus: emp.approval_status,
               createdAt: emp.created_at,
               updatedAt: emp.updated_at,
             })),
@@ -239,6 +250,35 @@ export default {
           env,
           request
         );
+      }
+
+      if (url.pathname.startsWith('/api/admin/employees/') && method === 'POST') {
+        const session = await authenticateRequest(request, env);
+        if (!session) return errorResponse('Unauthorized', 401, null, env, request);
+        if (!(await isAdminSession(session, env))) {
+          return errorResponse('Forbidden: Administrator access required.', 403, null, env, request);
+        }
+
+        const approvalPath = url.pathname.slice('/api/admin/employees/'.length);
+        if (!approvalPath.endsWith('/approve')) {
+          return errorResponse('Invalid employee approval path.', 400, null, env, request);
+        }
+        const targetId = approvalPath.slice(0, -'/approve'.length);
+        if (!targetId || targetId.includes('/')) {
+          return errorResponse('Invalid employee approval path.', 400, null, env, request);
+        }
+
+        const result = await env.DB.prepare(
+          `UPDATE employees SET approval_status = 'approved', updated_at = ?
+           WHERE id = ?`
+        )
+          .bind(new Date().toISOString(), targetId)
+          .run();
+        if (result.meta.changes === 0) {
+          return errorResponse('Employee profile not found.', 404, null, env, request);
+        }
+
+        return jsonResponse({ success: true, approvalStatus: 'approved' }, 200, env, request);
       }
 
       if (url.pathname.startsWith('/api/admin/employees/') && method === 'PUT') {
@@ -400,6 +440,7 @@ export default {
               teamId: updated.team_id,
               managerGithubUsername: updated.manager_github_username,
               role: updated.role,
+              approvalStatus: updated.approval_status,
               createdAt: updated.created_at,
               updatedAt: updated.updated_at,
             },

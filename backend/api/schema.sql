@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS employees (
   avatar_url TEXT,
   team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
   role TEXT NOT NULL DEFAULT 'employee', -- 'employee', 'manager', 'admin'
+  approval_status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'approved'
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

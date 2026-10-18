@@ -51,6 +51,25 @@ export const AdminUserManagement: React.FC = () => {
     }
   };
 
+  const approveEmployee = async (employee: Employee) => {
+    setSavingId(employee.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await api.approveAdminEmployee(employee.id);
+      setEmployees(current =>
+        current.map(item =>
+          item.id === employee.id ? { ...item, approvalStatus: 'approved' } : item
+        )
+      );
+      setNotice(`Approved ${employee.name}'s account.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve employee account.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <section className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
@@ -59,7 +78,7 @@ export const AdminUserManagement: React.FC = () => {
         </div>
         <div>
           <h2 className="text-sm font-bold text-slate-900">Manage User Profiles</h2>
-          <p className="text-xs text-slate-500">Set official email, reporting manager, display name, and role.</p>
+          <p className="text-xs text-slate-500">Approve new accounts and set official email, reporting manager, display name, and role.</p>
         </div>
       </div>
 
@@ -85,7 +104,7 @@ export const AdminUserManagement: React.FC = () => {
         <p className="p-6 text-sm text-slate-500">No employee profiles found.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-xs">
+          <table className="w-full min-w-[980px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 uppercase tracking-wide">
               <tr>
                 <th className="px-4 py-3 font-semibold">Employee</th>
@@ -93,6 +112,7 @@ export const AdminUserManagement: React.FC = () => {
                 <th className="px-4 py-3 font-semibold">Official email</th>
                 <th className="px-4 py-3 font-semibold">Manager</th>
                 <th className="px-4 py-3 font-semibold">Role</th>
+                <th className="px-4 py-3 font-semibold">Access</th>
                 <th className="px-4 py-3 font-semibold">Action</th>
               </tr>
             </thead>
@@ -163,19 +183,40 @@ export const AdminUserManagement: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        disabled={savingId !== null}
-                        onClick={() => saveEmployee(employee)}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-adn-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-adn-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {savingId === employee.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Check className="w-3.5 h-3.5" />
+                      <span className={`inline-flex rounded-full px-2 py-1 font-semibold ${
+                        employee.approvalStatus === 'pending'
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        {employee.approvalStatus === 'pending' ? 'Pending' : 'Approved'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col items-start gap-2">
+                        <button
+                          type="button"
+                          disabled={savingId !== null}
+                          onClick={() => saveEmployee(employee)}
+                          className="inline-flex items-center gap-1.5 rounded-md bg-adn-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-adn-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {savingId === employee.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5" />
+                          )}
+                          Save
+                        </button>
+                        {employee.approvalStatus === 'pending' && (
+                          <button
+                            type="button"
+                            disabled={savingId !== null}
+                            onClick={() => approveEmployee(employee)}
+                            className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Approve
+                          </button>
                         )}
-                        Save
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 );

@@ -92,6 +92,8 @@ The entire system is architected to operate on **100% ongoing free tiers**, with
 
 ## Daily Update Workflow & Deadline Cutoff
 
+New GitHub accounts are created with pending access and cannot use the portal until an administrator approves them in **Manage User Profiles**. Existing employee accounts remain approved.
+
 1. **Daily Update Window:**
    - Employees can create, edit, and save drafts of their daily updates up until **11:30 PM (Asia/Dhaka)**. No separate submission is required; the scheduled report includes the latest saved draft.
    - The UI shows a real-time countdown timer to the deadline.
@@ -174,6 +176,9 @@ npx wrangler d1 create ems-db
 
 # 5. Initialize the database schema
 npx wrangler d1 execute ems-db --remote --file=./schema.sql
+
+# For databases created before the approval feature, apply its migration once:
+# npx wrangler d1 execute ems-db --remote --file=./migrations/0003_employee_approval.sql
 
 # 6. Set worker secrets
 npx wrangler secret put GITHUB_CLIENT_ID

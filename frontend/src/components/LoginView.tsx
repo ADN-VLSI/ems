@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Github, Shield, Cpu } from 'lucide-react';
 import { api } from '../api';
 
@@ -9,6 +9,16 @@ interface LoginViewProps {
 export const LoginView: React.FC<LoginViewProps> = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [approvalPending, setApprovalPending] = useState(false);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('approval') !== 'pending') return;
+
+    setApprovalPending(true);
+    url.searchParams.delete('approval');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   const handleGitHubOAuth = async () => {
     setLoading(true);
@@ -41,6 +51,11 @@ export const LoginView: React.FC<LoginViewProps> = () => {
         {error && (
           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 leading-relaxed">
             {error}
+          </div>
+        )}
+        {approvalPending && (
+          <div role="status" className="p-3.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 leading-relaxed">
+            Your request to join EMS has been received. An administrator must approve your account before you can sign in.
           </div>
         )}
 
