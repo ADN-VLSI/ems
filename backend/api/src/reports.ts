@@ -10,7 +10,6 @@ interface UpdateRow {
   email: string;
   official_email: string | null;
   team_id: string | null;
-  team_name: string | null;
   manager_name: string | null;
   manager_email: string | null;
   date: string;
@@ -162,12 +161,12 @@ export async function prepareDailyReports(
          u.id, u.employee_id, u.date, u.todays_tasks, u.sudden_tasks, u.blockers, u.plans_going_forward,
          u.status, u.submitted_at, u.locked_at,
          e.name, e.github_username, e.email, e.official_email,
-         t.id as team_id, t.name as team_name, t.manager_name, t.manager_email
+         t.id as team_id, t.manager_name, t.manager_email
        FROM daily_updates u
        JOIN employees e ON u.employee_id = e.id
        LEFT JOIN teams t ON e.team_id = t.id
        WHERE u.date = ?
-       ORDER BY t.name ASC, e.name ASC`
+       ORDER BY t.manager_name ASC, e.name ASC`
     )
     .bind(date)
     .all<UpdateRow>();
@@ -260,12 +259,11 @@ ${renderTextBullets(plans)}
 
   // 6. Generate Team-by-Team Manager Reports
   // Group rows by team
-  const teamsMap = new Map<string, { teamName: string; managerName: string; managerEmail: string; rows: UpdateRow[] }>();
+  const teamsMap = new Map<string, { managerName: string; managerEmail: string; rows: UpdateRow[] }>();
   for (const row of rows) {
     if (!row.team_id || !row.manager_email) continue;
     if (!teamsMap.has(row.team_id)) {
       teamsMap.set(row.team_id, {
-        teamName: row.team_name || 'Team',
         managerName: row.manager_name || 'Manager',
         managerEmail: row.manager_email,
         rows: [],
@@ -284,8 +282,8 @@ ${renderTextBullets(plans)}
     const htmlContent = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; color: #1f2937;">
         <div style="border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px;">
-          <h2 style="margin: 0; color: #1e3a8a;">Daily Team Update Report: ${escapeHtml(teamInfo.teamName)}</h2>
-          <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 14px;">Date: <strong>${date}</strong> | Team: <strong>${escapeHtml(teamInfo.teamName)}</strong></p>
+          <h2 style="margin: 0; color: #1e3a8a;">Daily Team Update Report</h2>
+          <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 14px;">Date: <strong>${date}</strong> | Manager: <strong>${escapeHtml(teamInfo.managerName)}</strong></p>
         </div>
         <p>Dear <strong>${escapeHtml(teamInfo.managerName)}</strong>,</p>
         <p>Below is the combined daily updates summary for your team members on <strong>${date}</strong>:</p>
@@ -299,7 +297,7 @@ ${renderTextBullets(plans)}
     `;
 
     const textContent = `
-Daily Team Update Report: ${teamInfo.teamName} - ${date}
+Daily Team Update Report - ${date}
 Manager: ${teamInfo.managerName}
 
 UPDATES:
@@ -310,7 +308,7 @@ ${buildTextTable(teamInfo.rows)}
       id: `team-${teamId}-${date}`,
       type: 'team_manager',
       to: teamInfo.managerEmail,
-      subject: `[EMS] Daily Team Report: ${teamInfo.teamName} - ${date}`,
+      subject: `[EMS] Daily Team Report - ${date}`,
       htmlContent,
       textContent,
       recipientName: teamInfo.managerName,
@@ -331,16 +329,16 @@ ${buildTextTable(teamInfo.rows)}
     let companyTablesHtml = '';
     const groupedByTeamName = new Map<string, UpdateRow[]>();
     for (const row of rows) {
-      const tName = row.team_name || 'General Engineering';
-      if (!groupedByTeamName.has(tName)) {
-        groupedByTeamName.set(tName, []);
+      const managerName = row.manager_name || 'No manager assigned';
+      if (!groupedByTeamName.has(managerName)) {
+        groupedByTeamName.set(managerName, []);
       }
-      groupedByTeamName.get(tName)!.push(row);
+      groupedByTeamName.get(managerName)!.push(row);
     }
 
-    groupedByTeamName.forEach((teamRows, tName) => {
+    groupedByTeamName.forEach((teamRows, managerName) => {
       companyTablesHtml += `
-        <h3 style="margin: 24px 0 8px 0; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; padding-bottom: 4px;">Team: ${escapeHtml(tName)} (${teamRows.length} members)</h3>
+        <h3 style="margin: 24px 0 8px 0; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; padding-bottom: 4px;">Manager: ${escapeHtml(managerName)} (${teamRows.length} members)</h3>
         <div style="margin-bottom: 24px; overflow-x: auto;">
           ${buildHtmlTable(teamRows)}
         </div>

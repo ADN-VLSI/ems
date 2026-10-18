@@ -1,13 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Employee, Team } from '@shared/types';
+import { Employee } from '@shared/types';
 import { api } from '../api';
 import { AlertCircle, Check, Loader2, Shield, Users } from 'lucide-react';
 
-interface AdminUserManagementProps {
-  teams: Team[];
-}
-
-export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({ teams }) => {
+export const AdminUserManagement: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -63,7 +59,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({ teams 
         </div>
         <div>
           <h2 className="text-sm font-bold text-slate-900">Manage User Profiles</h2>
-          <p className="text-xs text-slate-500">Set official email, team, display name, and role.</p>
+          <p className="text-xs text-slate-500">Set official email, reporting manager, display name, and role.</p>
         </div>
       </div>
 
@@ -95,7 +91,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({ teams 
                 <th className="px-4 py-3 font-semibold">Employee</th>
                 <th className="px-4 py-3 font-semibold">Personal email (fallback)</th>
                 <th className="px-4 py-3 font-semibold">Official email</th>
-                <th className="px-4 py-3 font-semibold">Team</th>
+                <th className="px-4 py-3 font-semibold">Manager</th>
                 <th className="px-4 py-3 font-semibold">Role</th>
                 <th className="px-4 py-3 font-semibold">Action</th>
               </tr>
@@ -129,19 +125,20 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({ teams 
                     </td>
                     <td className="px-4 py-3">
                       <select
-                        aria-label={`Team for ${employee.githubUsername}`}
-                        value={employee.teamId || ''}
+                        aria-label={`Manager for ${employee.githubUsername}`}
+                        value={employee.managerGithubUsername || ''}
                         onChange={event =>
                           updateEmployee(employee.id, {
-                            teamId: event.target.value || null,
-                            teamName: teams.find(team => team.id === event.target.value)?.name || null,
+                            managerGithubUsername: event.target.value || null,
                           })
                         }
                         className="w-40 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs focus:border-adn-500 focus:outline-none"
                       >
-                        <option value="">No team</option>
-                        {teams.map(team => (
-                          <option key={team.id} value={team.id}>{team.name}</option>
+                        <option value="">No manager</option>
+                        {employees.filter(manager => manager.role === 'manager' && manager.id !== employee.id).map(manager => (
+                          <option key={manager.id} value={manager.githubUsername}>
+                            {manager.name} (@{manager.githubUsername})
+                          </option>
                         ))}
                       </select>
                     </td>
@@ -188,7 +185,7 @@ export const AdminUserManagement: React.FC<AdminUserManagementProps> = ({ teams 
         </div>
       )}
       <div className="px-5 py-3 border-t border-slate-100 text-[11px] text-slate-500">
-        Individual update emails go to the official email when set, otherwise to the personal email.
+        Selecting a manager automatically creates or assigns that manager's team. Daily team reports go to the manager's official email when set, otherwise to the personal email.
       </div>
     </section>
   );

@@ -144,7 +144,7 @@ export const api = {
   },
 
   async updateAdminEmployee(
-    employee: Pick<Employee, 'id' | 'name' | 'officialEmail' | 'teamId' | 'role'>
+    employee: Pick<Employee, 'id' | 'name' | 'officialEmail' | 'managerGithubUsername' | 'role'>
   ): Promise<{ success: boolean; employee: Employee }> {
     return request<{ success: boolean; employee: Employee }>(
       `/api/admin/employees/${encodeURIComponent(employee.id)}`,
@@ -153,7 +153,7 @@ export const api = {
         body: JSON.stringify({
           name: employee.name,
           officialEmail: employee.officialEmail || null,
-          teamId: employee.teamId || null,
+          managerGithubUsername: employee.managerGithubUsername || null,
           role: employee.role,
         }),
       }

@@ -170,7 +170,7 @@ export default {
         }
 
         const emp = await env.DB.prepare(
-          `SELECT e.*, t.name as team_name, t.manager_name, t.manager_email
+          `SELECT e.*, t.manager_name, t.manager_email
            FROM employees e
            LEFT JOIN teams t ON e.team_id = t.id
            WHERE e.id = ?`
@@ -192,9 +192,8 @@ export default {
             officialEmail: emp.official_email || null,
             avatarUrl: emp.avatar_url,
             teamId: emp.team_id,
-            teamName: emp.team_name,
-            role: emp.role,
             managerName: emp.manager_name,
+            role: emp.role,
             managerEmail: emp.manager_email,
           },
           200,
@@ -212,7 +211,7 @@ export default {
         }
 
         const { results } = await env.DB.prepare(
-          `SELECT e.*, t.name AS team_name
+          `SELECT e.*, t.manager_github_username
            FROM employees e
            LEFT JOIN teams t ON e.team_id = t.id
            ORDER BY e.name COLLATE NOCASE ASC`
@@ -229,7 +228,7 @@ export default {
               officialEmail: emp.official_email || null,
               avatarUrl: emp.avatar_url,
               teamId: emp.team_id,
-              teamName: emp.team_name,
+              managerGithubUsername: emp.manager_github_username,
               role: emp.role,
               createdAt: emp.created_at,
               updatedAt: emp.updated_at,
@@ -267,7 +266,12 @@ export default {
             : typeof body.officialEmail === 'string'
               ? body.officialEmail.trim()
               : undefined;
-        const teamId = body.teamId === '' ? null : body.teamId;
+        const managerGithubUsername =
+          body.managerGithubUsername === null || body.managerGithubUsername === ''
+            ? null
+            : typeof body.managerGithubUsername === 'string'
+              ? body.managerGithubUsername.trim()
+              : undefined;
         const requestedRole = body.role;
 
         if (!name || name.length > 120) {
@@ -280,11 +284,11 @@ export default {
         ) {
           return errorResponse('Official email must be a valid email address or empty.', 400, null, env, request);
         }
-        if (teamId !== null && typeof teamId !== 'string') {
-          return errorResponse('Team assignment must be a team ID or empty.', 400, null, env, request);
+        if (managerGithubUsername === undefined || (managerGithubUsername !== null && !managerGithubUsername)) {
+          return errorResponse('Manager assignment must be a manager GitHub username or empty.', 400, null, env, request);
         }
         if (!['employee', 'manager', 'admin'].includes(requestedRole)) {
-          return errorResponse('Role must be employee or manager.', 400, null, env, request);
+          return errorResponse('Role must be employee, manager, or admin.', 400, null, env, request);
         }
 
         const target = await env.DB.prepare('SELECT github_username FROM employees WHERE id = ?')
@@ -298,9 +302,48 @@ export default {
         }
         const role = isFixedAdmin ? 'admin' : requestedRole;
 
-        if (teamId !== null) {
-          const team = await env.DB.prepare('SELECT id FROM teams WHERE id = ?').bind(teamId).first();
-          if (!team) return errorResponse('Selected team does not exist.', 400, null, env, request);
+        let teamId: string | null = null;
+        if (managerGithubUsername !== null) {
+          const manager = await env.DB.prepare(
+            `SELECT id, name, github_username, email, official_email, role
+             FROM employees WHERE lower(github_username) = lower(?)`
+          )
+            .bind(managerGithubUsername)
+            .first<{
+              id: string;
+              name: string;
+              github_username: string;
+              email: string;
+              official_email: string | null;
+              role: string;
+            }>();
+          if (!manager || manager.role !== 'manager' || manager.id === employeeId) {
+            return errorResponse('Select a different employee with the manager role.', 400, null, env, request);
+          }
+
+          const existingTeam = await env.DB.prepare(
+            'SELECT id FROM teams WHERE lower(manager_github_username) = lower(?) ORDER BY created_at ASC LIMIT 1'
+          )
+            .bind(manager.github_username)
+            .first<{ id: string }>();
+          teamId = existingTeam?.id || `team-${manager.id}`;
+          const managerEmail = manager.official_email?.trim() || manager.email;
+          if (existingTeam) {
+            await env.DB.prepare(
+              `UPDATE teams
+               SET name = ?, manager_name = ?, manager_email = ?, manager_github_username = ?
+               WHERE id = ?`
+            )
+              .bind(manager.name, manager.name, managerEmail, manager.github_username, teamId)
+              .run();
+          } else {
+            await env.DB.prepare(
+              `INSERT INTO teams (id, name, manager_name, manager_email, manager_github_username)
+               VALUES (?, ?, ?, ?, ?)`
+            )
+              .bind(teamId, manager.name, manager.name, managerEmail, manager.github_username)
+              .run();
+          }
         }
 
         await env.DB.prepare(
@@ -311,8 +354,30 @@ export default {
           .bind(name, officialEmail, teamId, role, new Date().toISOString(), employeeId)
           .run();
 
+        if (role === 'manager') {
+          const managerProfile = await env.DB.prepare(
+            'SELECT name, email, official_email FROM employees WHERE id = ?'
+          )
+            .bind(employeeId)
+            .first<{ name: string; email: string; official_email: string | null }>();
+          if (managerProfile) {
+            await env.DB.prepare(
+              `UPDATE teams
+               SET name = ?, manager_name = ?, manager_email = ?
+               WHERE lower(manager_github_username) = lower(?)`
+            )
+              .bind(
+                managerProfile.name,
+                managerProfile.name,
+                managerProfile.official_email?.trim() || managerProfile.email,
+                target.github_username
+              )
+              .run();
+          }
+        }
+
         const updated = await env.DB.prepare(
-          `SELECT e.*, t.name AS team_name
+          `SELECT e.*, t.manager_github_username
            FROM employees e
            LEFT JOIN teams t ON e.team_id = t.id
            WHERE e.id = ?`
@@ -332,7 +397,7 @@ export default {
               officialEmail: updated.official_email || null,
               avatarUrl: updated.avatar_url,
               teamId: updated.team_id,
-              teamName: updated.team_name,
+              managerGithubUsername: updated.manager_github_username,
               role: updated.role,
               createdAt: updated.created_at,
               updatedAt: updated.updated_at,
@@ -560,7 +625,14 @@ export default {
 
       // 12. Teams list
       if (url.pathname === '/api/teams' && method === 'GET') {
-        const { results: teams } = await env.DB.prepare('SELECT * FROM teams ORDER BY name ASC').all();
+        const { results } = await env.DB.prepare('SELECT * FROM teams ORDER BY manager_name COLLATE NOCASE ASC').all<any>();
+        const teams = results.map((team: any) => ({
+          id: team.id,
+          managerName: team.manager_name,
+          managerEmail: team.manager_email,
+          managerGithubUsername: team.manager_github_username,
+          createdAt: team.created_at,
+        }));
         return jsonResponse({ teams }, 200, env, request);
       }
 

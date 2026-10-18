@@ -11,7 +11,8 @@ export interface Employee {
   officialEmail?: string | null;
   avatarUrl?: string;
   teamId?: string | null;
-  teamName?: string | null;
+  managerName?: string | null;
+  managerGithubUsername?: string | null;
   role: 'employee' | 'manager' | 'admin';
   createdAt?: string;
   updatedAt?: string;
@@ -19,7 +20,6 @@ export interface Employee {
 
 export interface Team {
   id: string;
-  name: string;
   managerName?: string | null;
   managerEmail?: string | null;
   managerGithubUsername?: string | null;
@@ -41,7 +41,6 @@ export interface DailyUpdate extends UpdateSections {
   employeeName?: string;
   employeeGithubUsername?: string;
   teamId?: string | null;
-  teamName?: string | null;
   date: string; // YYYY-MM-DD in designated timezone
   status: UpdateStatus;
   submittedAt?: string | null;

@@ -136,7 +136,7 @@ At **11:35 PM Asia/Dhaka** (5 minutes after cutoff), the scheduled GitHub Action
    - **To:** `foez.ahmed@adnsemicon.com`
    - **CC:** `mohiuddin.reyad@adnsemicon.com`, `farhan.efty@adnsemicon.com`
 
-Individual copies are sent to each employee's official email when configured, with their GitHub/personal email as fallback. The sole administrator, GitHub account [@foez-ahmed](https://github.com/foez-ahmed), can manage employee names, official emails, teams, and employee/manager roles from the **Manage Users** tab. Admin access cannot be assigned to another account.
+Individual copies are sent to each employee's official email when configured, with their GitHub/personal email as fallback. The sole administrator, GitHub account [@foez-ahmed](https://github.com/foez-ahmed), can manage employee names, official emails, reporting managers, and employee/manager roles from the **Manage Users** tab. Selecting a manager automatically creates or assigns the employee to that manager's team; nightly combined team reports are sent to the manager's official email, or personal email when no official email is configured. Admin access cannot be assigned to another account.
 
 ### Combined Report Table Structure
 

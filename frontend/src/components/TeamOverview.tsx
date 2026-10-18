@@ -15,7 +15,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ teams, userTeamId })
     {
       name: 'Mohiuddin Reyad',
       githubUsername: 'reyad07',
-      team: 'Core Engineering',
+      managerGithubUsername: 'reyad07',
       todaysTasks: [
         'Verified floorplan power density margins for 12nm test chip',
         'Reviewed timing constraints pull request #102',
@@ -27,7 +27,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ teams, userTeamId })
     {
       name: 'Farhan Efty',
       githubUsername: 'farhan-efty',
-      team: 'VLSI Design',
+      managerGithubUsername: 'farhan-efty',
       todaysTasks: [
         'Finished RTL synthesis for arithmetic logic unit',
         'Closed 14 critical timing path violations in sub-block A',
@@ -39,7 +39,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ teams, userTeamId })
     {
       name: 'Foez Ahmed',
       githubUsername: 'foez-ahmed',
-      team: 'Software & Tools',
+      managerGithubUsername: 'foez-ahmed',
       todaysTasks: [
         'Built automated daily update reporting pipeline with 11:30 PM cutoff',
         'Implemented GitHub App integration for Project tracking boards',
@@ -55,7 +55,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ teams, userTeamId })
       ? sampleUpdates
       : sampleUpdates.filter(u => {
           const t = teams.find(team => team.id === selectedTeam);
-          return t ? u.team === t.name : true;
+          return t ? u.managerGithubUsername === t.managerGithubUsername : true;
         });
 
   return (
@@ -82,7 +82,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ teams, userTeamId })
             <option value="all">All Teams (Company-wide)</option>
             {teams.map(t => (
               <option key={t.id} value={t.id}>
-                {t.name}
+                {t.managerName || t.managerGithubUsername || 'Manager'}
               </option>
             ))}
           </select>
@@ -107,7 +107,9 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ teams, userTeamId })
               <tr key={idx} className="hover:bg-slate-50/60 align-top transition-colors">
                 <td className="py-3 px-3.5 border-r border-slate-200 font-bold text-slate-900 whitespace-nowrap">
                   <div>{item.name}</div>
-                  <div className="text-[10px] text-slate-400 font-normal">{item.team}</div>
+                  <div className="text-[10px] text-slate-400 font-normal">
+                    Reports to @{item.managerGithubUsername}
+                  </div>
                 </td>
                 <td className="py-3 px-3.5 border-r border-slate-200 font-mono text-[11px] whitespace-nowrap">
                   <a

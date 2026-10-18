@@ -7,7 +7,6 @@ import { UpdateForm } from './components/UpdateForm';
 import { AssignedIssues } from './components/AssignedIssues';
 import { UpdateHistory } from './components/UpdateHistory';
 import { TeamOverview } from './components/TeamOverview';
-import { QuotaNotice } from './components/QuotaNotice';
 import { LoginView } from './components/LoginView';
 import { AdminUserManagement } from './components/AdminUserManagement';
 
@@ -20,7 +19,7 @@ export function App() {
   const [history, setHistory] = useState<DailyUpdate[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
 
-  const [activeTab, setActiveTab] = useState<'update' | 'history' | 'team' | 'quota' | 'admin'>('update');
+  const [activeTab, setActiveTab] = useState<'update' | 'history' | 'team' | 'admin'>('update');
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [issuesLoading, setIssuesLoading] = useState<boolean>(false);
@@ -48,13 +47,9 @@ export function App() {
       try {
         const teamsRes = await api.getTeams();
         setTeams(teamsRes.teams || []);
-      } catch {
-        // Fallback default teams
-        setTeams([
-          { id: 'team-core', name: 'Core Engineering', managerName: 'Mohiuddin Reyad', managerEmail: 'mohiuddin.reyad@adnsemicon.com' },
-          { id: 'team-vlsi', name: 'VLSI Design', managerName: 'Farhan Efty', managerEmail: 'farhan.efty@adnsemicon.com' },
-          { id: 'team-software', name: 'Software & Tools', managerName: 'Foez Ahmed', managerEmail: 'foez.ahmed@adnsemicon.com' },
-        ]);
+      } catch (error) {
+        console.warn('Failed to load teams:', error);
+        setTeams([]);
       }
 
       if (!token) {
@@ -238,15 +233,8 @@ export function App() {
               </div>
             )}
 
-            {/* Tab: Free-Tier Quota Specs */}
-            {activeTab === 'quota' && (
-              <div className="max-w-4xl mx-auto">
-                <QuotaNotice />
-              </div>
-            )}
-
             {activeTab === 'admin' && user.role === 'admin' && (
-              <AdminUserManagement teams={teams} />
+              <AdminUserManagement />
             )}
           </>
         )}

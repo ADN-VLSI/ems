@@ -4,8 +4,8 @@ import { LogOut, Users, Shield, Cpu, Github, ExternalLink } from 'lucide-react';
 
 interface HeaderProps {
   user: Employee | null;
-  activeTab: 'update' | 'history' | 'team' | 'quota' | 'admin';
-  setActiveTab: (tab: 'update' | 'history' | 'team' | 'quota' | 'admin') => void;
+  activeTab: 'update' | 'history' | 'team' | 'admin';
+  setActiveTab: (tab: 'update' | 'history' | 'team' | 'admin') => void;
   onLogout: () => void;
 }
 
@@ -63,16 +63,6 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
               >
                 Team Summary
               </button>
-              <button
-                onClick={() => setActiveTab('quota')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'quota'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-                }`}
-              >
-                Free-Tier Specs
-              </button>
               {user.role === 'admin' && (
                 <button
                   onClick={() => setActiveTab('admin')}
@@ -104,10 +94,10 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
                   <div className="flex items-center justify-end gap-1 text-[11px] text-slate-500">
                     <Github className="w-3 h-3 text-slate-400" />
                     <span>@{user.githubUsername}</span>
-                    {user.teamName && (
+                    {user.managerName && (
                       <>
                         <span>•</span>
-                        <span className="text-slate-600 font-medium">{user.teamName}</span>
+                        <span className="text-slate-600 font-medium">Manager: {user.managerName}</span>
                       </>
                     )}
                   </div>
@@ -168,14 +158,6 @@ export const Header: React.FC<HeaderProps> = ({ user, activeTab, setActiveTab, o
               }`}
             >
               Team Summary
-            </button>
-            <button
-              onClick={() => setActiveTab('quota')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap ${
-                activeTab === 'quota' ? 'bg-adn-600 text-white' : 'text-slate-600 bg-slate-100'
-              }`}
-            >
-              Free-Tier Specs
             </button>
             {user.role === 'admin' && (
               <button

@@ -215,7 +215,7 @@ export async function upsertEmployee(db: D1Database, githubUser: {
 }): Promise<Employee> {
   // Query existing employee
   const existing = await db
-    .prepare('SELECT e.*, t.name as team_name FROM employees e LEFT JOIN teams t ON e.team_id = t.id WHERE e.github_id = ?')
+    .prepare('SELECT e.*, t.manager_name as manager_name FROM employees e LEFT JOIN teams t ON e.team_id = t.id WHERE e.github_id = ?')
     .bind(githubUser.id)
     .first<any>();
 
@@ -249,7 +249,7 @@ export async function upsertEmployee(db: D1Database, githubUser: {
       officialEmail: existing.official_email || null,
       avatarUrl: githubUser.avatar_url,
       teamId: existing.team_id,
-      teamName: existing.team_name,
+      managerName: existing.manager_name,
       role,
       createdAt: existing.created_at,
       updatedAt: now,
@@ -258,10 +258,8 @@ export async function upsertEmployee(db: D1Database, githubUser: {
 
   // Create new employee
   const employeeId = 'emp-' + crypto.randomUUID();
-  // Assign default team if available
-  const defaultTeam = await db.prepare('SELECT id, name FROM teams LIMIT 1').first<any>();
-  const teamId = defaultTeam ? defaultTeam.id : null;
-  const teamName = defaultTeam ? defaultTeam.name : null;
+  const teamId = null;
+  const managerName = null;
 
   await db
     .prepare(
@@ -291,7 +289,7 @@ export async function upsertEmployee(db: D1Database, githubUser: {
     officialEmail: null,
     avatarUrl: githubUser.avatar_url,
     teamId,
-    teamName,
+    managerName,
     role,
     createdAt: now,
     updatedAt: now,
