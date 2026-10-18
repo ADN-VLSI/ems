@@ -47,7 +47,7 @@ export const AssignedIssues: React.FC<AssignedIssuesProps> = ({
 
         <div className="flex items-center gap-1">
           <a
-            href="https://github.com/issues/assigned"
+            href="https://github.com/issues/assigned?q=is%3Aissue+state%3Aopen+archived%3Afalse+assignee%3A%40me+sort%3Aupdated-desc+org%3AADN-VLSI"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-adn-700 hover:bg-adn-50"
