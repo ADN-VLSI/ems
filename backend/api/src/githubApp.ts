@@ -150,53 +150,11 @@ export async function fetchAssignedIssues(
   githubUsername: string,
   env: Env
 ): Promise<{ issues: GitHubIssueItem[]; rateLimitRemaining?: number; notice?: string }> {
-  // If GitHub App credentials are not provided in environment, provide clean informative fallback
+  // Do not show example issues when the live GitHub integration is unavailable.
   if (!env.GITHUB_APP_ID || !env.GITHUB_APP_PRIVATE_KEY || !env.GITHUB_APP_INSTALLATION_ID) {
     return {
-      issues: [
-        {
-          id: 'demo-issue-1',
-          number: 101,
-          title: 'Implement daily update submission deadline cutoff check',
-          url: 'https://github.com/ADN-VLSI/ems/issues/101',
-          state: 'OPEN',
-          repository: 'ADN-VLSI/ems',
-          repositoryUrl: 'https://github.com/ADN-VLSI/ems',
-          labels: [{ name: 'backend', color: '1d76db' }, { name: 'deadline', color: 'd93f0b' }],
-          projects: [
-            {
-              name: 'EMS Sprint Board',
-              url: 'https://github.com/orgs/ADN-VLSI/projects/1',
-              status: 'In Progress',
-            },
-          ],
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: 'demo-issue-2',
-          number: 104,
-          title: 'Design tabular daily report layout with team grouping',
-          url: 'https://github.com/ADN-VLSI/ems/issues/104',
-          state: 'OPEN',
-          repository: 'ADN-VLSI/ems',
-          repositoryUrl: 'https://github.com/ADN-VLSI/ems',
-          labels: [{ name: 'reports', color: '0e8a16' }],
-          projects: [
-            {
-              name: 'EMS Sprint Board',
-              url: 'https://github.com/orgs/ADN-VLSI/projects/1',
-              status: 'Review',
-            },
-            {
-              name: 'Q4 Core Deliverables',
-              url: 'https://github.com/orgs/ADN-VLSI/projects/2',
-              status: 'Active',
-            },
-          ],
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-      notice: 'Demo mode active: Configure GitHub App credentials in Cloudflare Worker secrets to load live issues.',
+      issues: [],
+      notice: 'Live issue sync is not configured. Use View on GitHub to see your actual assigned open issues.',
     };
   }
 

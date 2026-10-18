@@ -41,22 +41,33 @@ export const AssignedIssues: React.FC<AssignedIssuesProps> = ({
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight">Assigned GitHub Issues</h3>
-            <p className="text-xs text-slate-500">Tracked across GitHub Projects & Boards</p>
+            <p className="text-xs text-slate-500">Open issues assigned to your GitHub account</p>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={loading}
-          title="Refresh Issues"
-          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          <a
+            href="https://github.com/issues/assigned"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold text-adn-700 hover:bg-adn-50"
+          >
+            View on GitHub
+            <ExternalLink className="w-3 h-3" />
+          </a>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            title="Refresh Issues"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
-      {/* Notice / Demo banner */}
+      {/* Notice banner */}
       {notice && (
         <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-800 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -81,7 +92,7 @@ export const AssignedIssues: React.FC<AssignedIssuesProps> = ({
       )}
 
       {/* Empty state */}
-      {!loading && !error && issues.length === 0 && (
+      {!loading && !error && !notice && issues.length === 0 && (
         <div className="text-center py-8 text-slate-400 space-y-2">
           <CheckCircle2 className="w-8 h-8 mx-auto text-slate-300" />
           <p className="text-xs font-medium">No open issues currently assigned to your GitHub account.</p>

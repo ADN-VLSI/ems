@@ -123,6 +123,7 @@ The system connects to GitHub via a read-only GitHub App:
 - An issue can belong to multiple tracking boards; all associated boards are displayed.
 - **1-Click Integration:** Employees can click `+ Today's Task` or `+ Plan` directly on any issue card to immediately append it to their update form!
 - Zero personal access tokens (PATs) are requested from employees.
+- The issue panel links directly to [GitHub's assigned issues](https://github.com/issues/assigned). If the GitHub App issue sync is unavailable, the panel does not display fabricated demo issues.
 
 ---
 
