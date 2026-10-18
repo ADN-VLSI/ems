@@ -100,6 +100,7 @@ New GitHub accounts are created with pending access and cannot use the portal un
 2. **Cutoff Enforcement:**
    - At **11:30 PM**, updates for the day are strictly locked by the backend (`daily_updates.status = 'locked'`).
    - The backend enforces the deadline independently of frontend status. Any late `POST /api/updates/today` returns `403 Forbidden`.
+   - Update records are permanently deleted after every scheduled email for that date is confirmed sent. Failed or unconfirmed deliveries retain the records for retry; delivery audit records remain after deletion.
 3. **Next-Day Updates:**
    - Once reports are locked and dispatched, the system advances to the next date and opens a fresh update.
 

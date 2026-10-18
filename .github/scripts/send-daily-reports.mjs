@@ -116,6 +116,7 @@ async function main() {
   // 4. Dispatch emails with rate-limiting delay between sends
   let successCount = 0;
   let failureCount = 0;
+  let confirmationFailureCount = 0;
 
   for (let i = 0; i < emailsToSend.length; i++) {
     const email = emailsToSend[i];
@@ -152,7 +153,7 @@ async function main() {
     // 5. Confirm delivery with backend to record audit and enforce idempotency
     try {
       const confirmUrl = `${BACKEND_API_URL.replace(/\/+$/, '')}/api/reports/daily/confirm`;
-      await fetch(confirmUrl, {
+      const confirmResponse = await fetch(confirmUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,7 +168,11 @@ async function main() {
           errorMessage,
         }),
       });
+      if (!confirmResponse.ok) {
+        throw new Error(`Delivery confirmation failed with status ${confirmResponse.status}`);
+      }
     } catch (confirmErr) {
+      confirmationFailureCount++;
       console.warn(` -> Warning: Failed to record delivery confirmation in database:`, confirmErr.message);
     }
 
@@ -180,9 +185,10 @@ async function main() {
   console.log('\n--- Delivery Summary ---');
   console.log(`Successfully sent: ${successCount}`);
   console.log(`Failed: ${failureCount}`);
+  console.log(`Failed to record confirmations: ${confirmationFailureCount}`);
   console.log(`Previously completed: ${alreadySentCount}`);
 
-  if (failureCount > 0) {
+  if (failureCount > 0 || confirmationFailureCount > 0) {
     console.error('Completed with delivery errors. Check logs above.');
     process.exit(1);
   } else {

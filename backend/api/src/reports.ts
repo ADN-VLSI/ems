@@ -397,12 +397,54 @@ ${buildTextTable(rows)}
     });
   }
 
+  if (emailsToSend.length > 0) {
+    const createdAt = new Date().toISOString();
+    await db.batch(
+      emailsToSend.map(email =>
+        db
+          .prepare(
+            `INSERT INTO report_deliveries (
+               id, date, report_type, recipient_email, status, message_id, error_message, sent_at, created_at
+             ) VALUES (?, ?, ?, ?, 'pending', NULL, NULL, NULL, ?)
+             ON CONFLICT(date, report_type, recipient_email) DO UPDATE SET
+               status = 'pending', message_id = NULL, error_message = NULL, sent_at = NULL
+             WHERE report_deliveries.status <> 'sent'`
+          )
+          .bind(
+            'rep-' + crypto.randomUUID(),
+            date,
+            email.type,
+            email.to.toLowerCase(),
+            createdAt
+          )
+      )
+    );
+  }
+
+  await discardSentDailyUpdates(db, date);
+
   return {
     date,
     timezone,
     alreadySentCount,
     emailsToSend,
   };
+}
+
+async function discardSentDailyUpdates(db: D1Database, date: string): Promise<void> {
+  const deliveryState = await db
+    .prepare(
+      `SELECT COUNT(*) AS total,
+              COUNT(CASE WHEN status <> 'sent' THEN 1 END) AS unfinished
+       FROM report_deliveries
+       WHERE date = ?`
+    )
+    .bind(date)
+    .first<{ total: number; unfinished: number }>();
+
+  if (!deliveryState || deliveryState.total === 0 || deliveryState.unfinished > 0) return;
+
+  await db.prepare('DELETE FROM daily_updates WHERE date = ?').bind(date).run();
 }
 
 /**
@@ -432,4 +474,8 @@ export async function recordReportDelivery(
     )
     .bind(id, date, reportType, recipientEmail.toLowerCase(), status, messageId || null, errorMessage || null, status === 'sent' ? now : null, now)
     .run();
+
+  if (status === 'sent') {
+    await discardSentDailyUpdates(db, date);
+  }
 }
