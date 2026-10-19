@@ -6,6 +6,31 @@
 
 import nodemailer from 'nodemailer';
 
+function getScheduledReportDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now);
+  const getPart = type => Number(parts.find(part => part.type === type)?.value);
+  const year = getPart('year');
+  const month = getPart('month');
+  const day = getPart('day');
+  const hour = getPart('hour');
+  const minute = getPart('minute');
+  const reportDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (hour < 23 || (hour === 23 && minute < 30)) {
+    reportDate.setUTCDate(reportDate.getUTCDate() - 1);
+  }
+
+  return reportDate.toISOString().slice(0, 10);
+}
+
 async function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -24,6 +49,7 @@ async function main() {
     SMTP_FROM,
     REPORT_DATE,
     BYPASS_CUTOFF,
+    GITHUB_EVENT_NAME,
   } = process.env;
 
   const missing = [];
@@ -54,7 +80,7 @@ async function main() {
         Authorization: `Bearer ${REPORT_API_KEY}`,
       },
       body: JSON.stringify({
-        date: REPORT_DATE || undefined,
+        date: REPORT_DATE || (GITHUB_EVENT_NAME === 'schedule' ? getScheduledReportDate() : undefined),
         bypassCutoff: BYPASS_CUTOFF === 'true',
       }),
     });
